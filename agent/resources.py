@@ -18,9 +18,9 @@ from urllib.parse import parse_qs, quote_plus, urlencode, urlsplit, urlunsplit
 
 import requests
 
-from agent import config
+from agent import config, obs
 
-API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+API ="https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 REDIRECT_HOST = "vertexaisearch.cloud.google.com"
 
 CLIENT = """You are a senior career coach preparing follow-up resources for a client after a coaching call.
@@ -99,14 +99,24 @@ def _parse_json(text: str) -> dict:
         return {}
 
 
-def _search(task: str, context: str) -> tuple:
-    """One grounded request → (parsed JSON, resolved source URLs, supported text)."""
-    r = requests.post(API.format(model=config.RESEARCH_MODEL), timeout=150,
+def _grounded(prompt: str, usage, timeout: int = 150) -> dict:
+    """One Gemini request with Google Search; records tokens and searches in usage."""
+    r = requests.post(API.format(model=config.RESEARCH_MODEL), timeout=timeout,
                       params={"key": config.GEMINI_API_KEY},
-                      json={"contents": [{"role": "user", "parts": [{"text": context + "\n" + TASKS[task]}]}],
+                      json={"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                             "tools": [{"google_search": {}}]})
     r.raise_for_status()
-    candidate = r.json()["candidates"][0]
+    data = r.json()
+    candidate = data["candidates"][0]
+    if usage is not None:
+        queries = candidate.get("groundingMetadata", {}).get("webSearchQueries", [])
+        usage.add_flash(data.get("usageMetadata", {}), searches=len(queries))
+    return candidate
+
+
+def _search(task: str, context: str, usage=None) -> tuple:
+    """One grounded request → (parsed JSON, resolved source URLs, supported text)."""
+    candidate = _grounded(context + "\n" + TASKS[task], usage)
     text = "".join(p.get("text", "") for p in candidate.get("content", {}).get("parts", []))
     gm = candidate.get("groundingMetadata", {})
     sources = {_norm(u) for u in (_resolve(c.get("web", {}).get("uri", ""))
@@ -126,20 +136,15 @@ TITLE: their current title according to the search results
 LINKEDIN: their linkedin.com/in/ profile URL if it appeared in the search results, else none"""
 
 
-def _verify_person(p: dict):
+def _verify_person(p: dict, usage=None):
     """Confirm a suggested person with their own grounded search. The bulk people
     search sometimes answers from memory without search sources, so every person
     needs this check. Returns the person with a usable URL, or None."""
     name = str(p.get("name", "")).strip()
     if not name:
         return None
-    r = requests.post(API.format(model=config.RESEARCH_MODEL), timeout=90,
-                      params={"key": config.GEMINI_API_KEY},
-                      json={"contents": [{"role": "user", "parts": [{"text": VERIFY_PERSON.format(
-                          name=name, headline=p.get("headline", ""), company=p.get("company", ""))}]}],
-                            "tools": [{"google_search": {}}]})
-    r.raise_for_status()
-    candidate = r.json()["candidates"][0]
+    candidate = _grounded(VERIFY_PERSON.format(name=name, headline=p.get("headline", ""),
+                                               company=p.get("company", "")), usage, timeout=90)
     chunks = candidate.get("groundingMetadata", {}).get("groundingChunks", [])
     text = "".join(x.get("text", "") for x in candidate.get("content", {}).get("parts", []))
     field = lambda key: (re.findall(rf"^\W*{key}:\s*(.+?)\s*$", text, re.M | re.I) or [""])[-1]
@@ -176,7 +181,7 @@ def _safe(fn, *args):
     try:
         return fn(*args)
     except Exception as e:
-        print(f"[research] {fn.__name__} failed: {e!r}", flush=True)
+        obs.log("research_error", f"{fn.__name__} failed: {e!r}", severity="WARNING")
         return None
 
 
@@ -184,8 +189,9 @@ def _people_search_link(*terms: str) -> str:
     return "https://www.linkedin.com/search/results/people/?keywords=" + quote_plus(" ".join(t for t in terms if t)[:120])
 
 
-def find_resources(summary: dict, resume: str) -> dict:
-    """Return {"videos","learning","people","reading","people_search"} with verified links only."""
+def find_resources(summary: dict, resume: str, usage=None) -> dict:
+    """Return {"videos","learning","people","reading","people_search"} with verified links only.
+    Gemini tokens and search queries are added to `usage` (costs.Usage) if given."""
     target = summary.get("target_role") or summary.get("goal", "")
     out = {"videos": [], "learning": [], "people": [], "reading": [],
            "people_search": _people_search_link(target)}
@@ -198,13 +204,13 @@ def find_resources(summary: dict, resume: str) -> dict:
         resume=re.sub(r"\s+", " ", resume)[:3000])
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        jobs = {task: pool.submit(_search, task, context) for task in TASKS}
+        jobs = {task: pool.submit(_search, task, context, usage) for task in TASKS}
     results = {}
     for task, job in jobs.items():
         try:
             results[task] = job.result()
         except Exception as e:  # one failed search shouldn't lose the others
-            print(f"[research] {task} failed: {e!r}", flush=True)
+            obs.log("research_error", f"{task} search failed: {e!r}", severity="WARNING")
 
     if "watch" in results:
         found, sources, _ = results["watch"]
@@ -222,9 +228,10 @@ def find_resources(summary: dict, resume: str) -> dict:
     if "people" in results:
         candidates = (results["people"][0].get("people", []) or [])[:5]
         with ThreadPoolExecutor(max_workers=5) as pool:
-            checks = list(pool.map(lambda p: _safe(_verify_person, p), candidates))
+            checks = list(pool.map(lambda p: _safe(_verify_person, p, usage), candidates))
         out["people"] = [p for p in checks if p]
-    print("[research] kept " + ", ".join(f"{k}={len(v)}" for k, v in out.items() if isinstance(v, list)), flush=True)
+    obs.log("research_done", "resources researched",
+            **{k: len(v) for k, v in out.items() if isinstance(v, list)})
     return out
 
 

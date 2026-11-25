@@ -5,19 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Disha · AI Career Coach</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
 </head>
 <body>
   <main>
     <header>
       <h1>Disha</h1>
       <p class="tagline">Your AI career coach. Upload your resume and Disha will call you for a 10-minute coaching conversation about it.</p>
+      <p id="plan" class="plan" hidden></p>
     </header>
 
     <section id="setup" class="card">
-      <form id="setup-form">
+      <form id="setup-form" novalidate>
         <label>Mobile number
           <input id="phone" name="phone" type="tel" required inputmode="tel" autocomplete="tel" placeholder="98765 43210">
-          <span class="hint">Indian mobile numbers only. Disha calls from +91 80654 81243.</span>
+          <span id="verified" class="hint" hidden></span>
+          <span class="hint">Indian mobile numbers only. We'll send a one-time code the first time. Disha calls from +91 80654 81243.</span>
         </label>
         <p class="returning">Spoken with Disha before? Just enter your number and click <b>Call me now</b>. Disha remembers your resume and your previous calls. Fill in the rest only to change them.</p>
         <label>Your name
@@ -31,12 +34,32 @@
           <span class="hint">Required for your first call. Upload again only to replace it.</span>
         </label>
         <label class="consent">
+          <input id="whatsapp" name="whatsapp" type="checkbox" value="yes" checked>
+          <span>Also send my summary on WhatsApp to this number.</span>
+        </label>
+        <label class="consent">
           <input id="consent" name="consent" type="checkbox" value="yes" required>
-          <span>I want Disha to call this number now. I understand Disha is an AI, my resume and calls are processed by Google Gemini, and my resume and call transcripts are kept so Disha can remember them on future calls. A summary is emailed to me.</span>
+          <span>I want Disha to call this number now. I've read the <a href="/privacy" target="_blank">privacy policy</a> and <a href="/terms" target="_blank">terms</a>. I understand Disha is an AI, my resume and calls are processed by Google Gemini, and my resume and call transcripts are kept for up to 12 months after my last call so Disha can remember them.</span>
         </label>
         <button id="start" type="submit">Call me now</button>
         <p id="setup-status" class="status" role="status"></p>
       </form>
+
+      <div id="otp" class="otp" hidden>
+        <label>Enter the 6-digit code sent to <b id="otp-number"></b>
+          <input id="otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}">
+        </label>
+        <button id="otp-verify" type="button">Verify and call me</button>
+        <button id="otp-cancel" type="button" class="link">Change number</button>
+        <p id="otp-status" class="status" role="status"></p>
+      </div>
+
+      <div id="pay" class="otp" hidden>
+        <p id="pay-text"></p>
+        <button id="pay-button" type="button">Pay with UPI, card or netbanking</button>
+        <p id="pay-status" class="status" role="status"></p>
+      </div>
+      <div id="recaptcha"></div>
     </section>
 
     <section id="calling" class="card" hidden>
@@ -47,6 +70,9 @@
       <button id="again" type="button" class="secondary" hidden>Back</button>
     </section>
   </main>
-  <script src="/static/app.js"></script>
+  <footer>
+    <a href="/privacy">Privacy policy</a> · <a href="/terms">Terms</a> · <a href="/my-data">My data</a>
+  </footer>
+  <script type="module" src="/static/app.js"></script>
 </body>
 </html>

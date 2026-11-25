@@ -64,6 +64,40 @@ def append_row(tab: str, header: list, row: list) -> None:
                   body={"values": [row]}).execute()
 
 
+def read_rows(tab: str) -> list:
+    """All data rows of a tab as dicts keyed by the header row ([] if the tab is missing)."""
+    try:
+        values = _sheets().spreadsheets().values().get(
+            spreadsheetId=config.SPREADSHEET_ID, range=f"{tab}!A:ZZ").execute().get("values", [])
+    except Exception:
+        return []
+    if not values:
+        return []
+    header = values[0]
+    return [dict(zip(header, row + [""] * (len(header) - len(row)))) for row in values[1:]]
+
+
+def delete_rows_where(tab: str, keep) -> int:
+    """Delete data rows for which keep(row_dict) is False. Returns rows deleted.
+    Used for data-erasure requests and the retention policy."""
+    sheets = _sheets().spreadsheets()
+    meta = sheets.get(spreadsheetId=config.SPREADSHEET_ID, fields="sheets.properties").execute()
+    sheet_id = next((s["properties"]["sheetId"] for s in meta.get("sheets", [])
+                     if s["properties"]["title"] == tab), None)
+    if sheet_id is None:
+        return 0
+    rows = read_rows(tab)
+    doomed = [i + 1 for i, row in enumerate(rows) if not keep(row)]  # +1 skips the header
+    if not doomed:
+        return 0
+    # Delete bottom-up so earlier indices stay valid.
+    requests_ = [{"deleteDimension": {"range": {"sheetId": sheet_id, "dimension": "ROWS",
+                                                "startIndex": i, "endIndex": i + 1}}}
+                 for i in sorted(doomed, reverse=True)]
+    sheets.batchUpdate(spreadsheetId=config.SPREADSHEET_ID, body={"requests": requests_}).execute()
+    return len(doomed)
+
+
 def send_email(to: str, subject: str, body: str) -> bool:
     """Send via Gmail SMTP with an app password."""
     if not (config.GMAIL_USER and config.GMAIL_APP_PASSWORD and to):

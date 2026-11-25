@@ -55,3 +55,23 @@ def check_credentials() -> dict:
     r = requests.get(f"{API}/auth/me", headers=_headers(), timeout=10)
     r.raise_for_status()
     return r.json()
+
+
+def balance_inr() -> float:
+    """Spendable balance in rupees (GET /Account/{id}/balance/INR)."""
+    r = requests.get(f"{API}/Account/{config.VOBIZ_AUTH_ID}/balance/INR", headers=_headers(), timeout=10)
+    r.raise_for_status()
+    return float(r.json().get("available_balance", 0))
+
+
+def call_cost_inr(call_uuid: str) -> float:
+    """Billed cost of a finished call. The record labels it USD, but the amount
+    matches the account's INR rate (₹0.45/min × started minutes), so it's rupees.
+    Returns -1 if Vobiz hasn't priced the call yet."""
+    if not call_uuid:
+        return -1
+    r = requests.get(f"{API}/Account/{config.VOBIZ_AUTH_ID}/Call/{call_uuid}/", headers=_headers(), timeout=10)
+    if r.status_code != 200:
+        return -1
+    cost = r.json().get("cost")
+    return float(cost) if cost not in (None, "") else -1

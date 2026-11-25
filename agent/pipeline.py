@@ -21,7 +21,8 @@ from datetime import datetime
 import websockets
 from aiohttp import WSMsgType, web
 
-from agent import config, integrations, resources, store, telephony, tools, vobiz_api
+from agent import (config, costs, integrations, obs, quality, resources, store, telephony,
+                   tools, vobiz_api, whatsapp)
 
 GREETING_GUARD_MAX_SECS = 20   # release caller audio even if the greeting never completes
 POST_SAVE_MAX_SECS = 30        # hang up even if the goodbye never arrives
@@ -33,6 +34,8 @@ class Call:
         self.sid = rec["sid"]
         self.name, self.email, self.phone = rec["name"], rec["email"], rec["phone"]
         self.resume, self.history = rec["resume"], rec.get("history", "")
+        self.whatsapp = bool(rec.get("whatsapp"))
+        self.entitlement = rec.get("entitlement", "free")
         self.call_uuid = rec.get("call_uuid", "")
         self.t0 = time.time()
         self.stream_id = ""
@@ -50,18 +53,19 @@ class Call:
         self.agent_play_end = 0.0        # wall time when queued agent audio finishes
         self.tools_done: set = set()
         self.summary: dict = {}
+        self.usage = costs.Usage()
 
-    def log(self, msg: str) -> None:
-        print(f"[{time.strftime('%H:%M:%S')}] call={self.sid} | {msg}", flush=True)
+    def log(self, msg: str, event: str = "call_log", severity: str = "INFO", **fields) -> None:
+        obs.log(event, msg, severity=severity, call_id=self.sid, **fields)
 
     def flush(self) -> None:
         if self.heard_buf.strip():
             self.transcript.append(f"Caller: {self.heard_buf.strip()}")
-            self.log(f"Caller: {self.heard_buf.strip()}")
+            self.log(f"Caller: {self.heard_buf.strip()}", event="transcript", role="caller")
             self.heard_buf = ""
         if self.said_buf.strip():
             self.transcript.append(f"Coach: {self.said_buf.strip()}")
-            self.log(f"Coach: {self.said_buf.strip()}")
+            self.log(f"Coach: {self.said_buf.strip()}", event="transcript", role="coach")
             self.said_buf = ""
 
 
@@ -76,7 +80,8 @@ def _setup_message(call: Call) -> dict:
         },
         "inputAudioTranscription": {},
         "outputAudioTranscription": {},
-        "systemInstruction": {"parts": [{"text": config.system_prompt(call.name, call.resume, call.history)}]},
+        "systemInstruction": {"parts": [{"text": config.system_prompt(
+            call.name, call.resume, call.history, call.email, call.whatsapp)}]},
         "tools": config.TOOL_DECLARATIONS,
     }}
 
@@ -106,15 +111,18 @@ async def call_handler(request: web.Request) -> web.WebSocketResponse:
 
     rec = await asyncio.to_thread(store.load, sid) if sid else None
     if not rec or not secrets.compare_digest(str(rec.get("token", "")), token) or not rec.get("resume"):
-        print(f"[stream] rejected sid={sid!r}: unknown, used or bad token", flush=True)
+        obs.log("stream_rejected", f"rejected sid={sid!r}: unknown, used or bad token", severity="WARNING")
         await ws.close()
         return ws
 
     call = Call(rec)
     if phone.needs_start:
         call.stream_id = start.get("streamId", "")
-    call.log(f"call started resume_chars={len(call.resume)} history_chars={len(call.history)}")
+    call.log("call started", event="call_started", entitlement=call.entitlement,
+             resume_chars=len(call.resume), history_chars=len(call.history))
     await asyncio.to_thread(store.update, call.sid, status="in_call", token="")  # token is single-use
+    # The call connected: count it against the free allowance or the day pass.
+    await asyncio.to_thread(store.consume_call, call.phone, call.entitlement)
     try:
         async with websockets.connect(config.GEMINI_WS_URL, open_timeout=15, ping_interval=20,
                                       ping_timeout=20, max_size=None) as gem:
@@ -133,21 +141,26 @@ async def call_handler(request: web.Request) -> web.WebSocketResponse:
                 job.cancel()
             for job in done:
                 if job.exception():
-                    call.log(f"task error: {job.exception()!r}")
+                    call.log(f"task error: {job.exception()!r}", event="call_error", severity="ERROR")
     except websockets.ConnectionClosed as e:
         # Invalid key (1007) and depleted credits (1011) surface here, not at connect.
-        call.log(f"Gemini closed the session: code={e.code} reason={e.reason}")
+        call.log(f"Gemini closed the session: code={e.code} reason={e.reason}", event="gemini_closed",
+                 severity="WARNING" if call.end_after_turn else "ERROR", code=e.code)
         if not call.end_after_turn:
             call.end_reason = "coach disconnected"
+        if e.code in (1007, 1011) and not call.end_after_turn:  # 1007 bad key, 1011 credits depleted
+            await asyncio.to_thread(obs.alert, "gemini_credits", "Gemini rejected a call: credits or key",
+                                    f"Gemini closed a live call with code {e.code}: {e.reason}\n"
+                                    "Top up credits or fix the key in AI Studio; calls are failing until then.",
+                                    3600)
     except Exception:
-        call.log("pipeline error:\n" + traceback.format_exc())
+        call.log("pipeline error:\n" + traceback.format_exc(), event="call_error", severity="ERROR")
         call.end_reason = "error"
     finally:
         call.closing = True
         if not ws.closed:
             await ws.close()
         call.flush()
-        call.log(f"call ended after {time.time() - call.t0:.0f}s ({call.end_reason})")
         # aiohttp may cancel this handler once the socket is closed. A thread
         # can't be cancelled, so hang-up and post-call work run as one thread job.
         await asyncio.shield(asyncio.to_thread(_after_call, call))
@@ -198,6 +211,8 @@ async def _gemini_to_phone(ws, gem, phone, call: Call) -> None:
     async for raw in gem:
         data = json.loads(raw)
         sc = data.get("serverContent", {})
+        if "usageMetadata" in data:
+            call.usage.add_live(data["usageMetadata"])  # one report per turn, summed for billing
 
         heard = _transcription(data, sc, "input")
         if heard:
@@ -242,14 +257,14 @@ async def _gemini_to_phone(ws, gem, phone, call: Call) -> None:
             await _run_tools(gem, data["toolCall"], call)
 
         if "goAway" in data:
-            call.log(f"Gemini goAway: {data['goAway']}")
+            call.log(f"Gemini goAway: {data['goAway']}", event="gemini_goaway", severity="WARNING")
 
 
 async def _run_tools(gem, tool_call: dict, call: Call) -> None:
     responses = []
     for fc in tool_call.get("functionCalls", []):
         name, args = fc.get("name", ""), fc.get("args") or {}
-        call.log(f"tool call {name} {json.dumps(args, ensure_ascii=False)}")
+        call.log(f"tool call {name}", event="tool_call", tool=name, args=args)
         call.tool_running = True
         try:
             result = await asyncio.to_thread(tools.run, name, args, call, call.tools_done)
@@ -257,7 +272,8 @@ async def _run_tools(gem, tool_call: dict, call: Call) -> None:
             result = {"success": False, "error": str(e)[:300]}
         finally:
             call.tool_running = False
-        call.log(f"tool result {name}: {result}")
+        call.log(f"tool result {name}: {result}", event="tool_result", tool=name,
+                 severity="INFO" if result.get("success") else "ERROR")
         if name == "save_session_summary":
             call.summary = call.summary or dict(args)  # email it even if the sheet write failed
         if result.get("success") and tools.ends_call(name) and not call.end_after_turn:
@@ -273,7 +289,7 @@ async def _watchdog(ws, gem, call: Call) -> None:
         await asyncio.sleep(1)
         elapsed = time.time() - call.t0
         if call.end_after_turn and time.time() - call.end_requested_at > POST_SAVE_MAX_SECS:
-            call.log("no goodbye after save — hanging up")
+            call.log("no goodbye after save — hanging up", severity="WARNING")
             call.end_reason = "completed"
             return
         if elapsed > config.WRAP_UP_SECS and not call.wrap_up_sent and not call.end_after_turn:
@@ -281,7 +297,7 @@ async def _watchdog(ws, gem, call: Call) -> None:
             call.log("time check — asking the coach to recap")
             await gem.send(json.dumps({"realtimeInput": {"text": "[TIME_CHECK]"}}))
         if elapsed > config.MAX_CALL_SECS:
-            call.log("call time limit reached")
+            call.log("call time limit reached", severity="WARNING")
             call.end_reason = "time limit"
             return
 
@@ -300,54 +316,120 @@ def _summary_email(call: Call, resources_text: str) -> str:
     if resources_text:
         body += [resources_text]
     body += ["All the best!", "Disha", "",
-             "This summary was written by an AI coach. Treat it as guidance, not professional advice."]
+             "This summary was written by an AI coach. Treat it as guidance, not professional advice.",
+             f"Your data and rights: {config.PUBLIC_URL}/my-data · Privacy policy: {config.PUBLIC_URL}/privacy"]
     return "\n".join(body)
 
 
+def _step(call: Call, name: str, fn, *args, **kwargs):
+    """Run one post-call step; a failure is logged and doesn't stop the others."""
+    try:
+        return fn(*args, **kwargs)
+    except Exception as e:
+        call.log(f"{name} failed: {e!r}", event=f"{name}_failed", severity="ERROR")
+        return None
+
+
 def _after_call(call: Call) -> None:
-    """Hang up, then summary email, call log row, and dropping the resume text.
-    On Cloud Run give the service always-allocated CPU."""
-    try:
-        # keepCallAlive keeps the line open after the stream; end it explicitly.
-        vobiz_api.hangup(call.call_uuid)
-    except Exception as e:
-        call.log(f"hangup failed: {e!r}")
+    """Hang up, then research, email, WhatsApp, quality score, cost, spend ledger,
+    balance check and memory. On Cloud Run give the service always-allocated CPU."""
+    duration = round(time.time() - call.t0)
+    # keepCallAlive keeps the line open after the stream; end it explicitly.
+    _step(call, "hangup", vobiz_api.hangup, call.call_uuid)
     text = "\n".join(call.transcript) or "(empty)"
-    found = {}
+
+    found, wa_sid, wa_cost = {}, "", 0.0
     if call.summary:
-        try:
-            # Internet research for the goal; only verified links survive.
-            found = resources.find_resources(call.summary, call.resume)
-        except Exception as e:
-            call.log(f"research failed: {e!r}")
-        try:
-            body = _summary_email(call, resources.email_section(found) if found else "")
-            if integrations.send_email(call.email, "Your career coaching summary and resources", body):
-                call.log("summary email sent")
-        except Exception as e:
-            call.log(f"email failed: {e!r}")
+        found = _step(call, "research", resources.find_resources, call.summary, call.resume, call.usage) or {}
+        body = _summary_email(call, resources.email_section(found) if found else "")
+        if _step(call, "email", integrations.send_email, call.email,
+                 "Your career coaching summary and resources", body):
+            call.log("summary email sent", event="email_sent")
+        if call.whatsapp and whatsapp.enabled():
+            top = [i["url"] for k in ("videos", "learning") for i in found.get(k, [])]
+            wa_sid = _step(call, "whatsapp", whatsapp.send_summary, call.phone, call.name,
+                           call.summary, call.email, top) or ""
+            if wa_sid:
+                wa_cost = config.PRICE_WHATSAPP_INR
+                call.log("whatsapp summary sent", event="whatsapp_sent", twilio_sid=wa_sid)
+
+    q = None
+    if len(call.transcript) >= 4 and config.GEMINI_API_KEY:
+        q = _step(call, "quality", quality.score_transcript, text, call.resume, call.usage)
+        if q:
+            call.log("call scored", event="quality_scored", overall=q.get("overall"), scores=q["scores"])
+            if config.SPREADSHEET_ID:
+                _step(call, "quality_row", integrations.append_row, "Quality",
+                      ["Timestamp", "Call", "overall", *quality.RUBRIC, "issues", "best_moment"],
+                      [time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(call.t0)), call.sid,
+                       q.get("overall"), *[q["scores"].get(k) for k in quality.RUBRIC],
+                       " | ".join(q.get("issues", [])), q.get("best_moment", "")])
+
+    # Cost: Vobiz's billed figure (it can lag a few seconds), else the tariff estimate.
+    vobiz = -1.0
+    for _ in range(3):
+        vobiz = _step(call, "vobiz_cost", vobiz_api.call_cost_inr, call.call_uuid) or -1.0
+        if vobiz >= 0:
+            break
+        time.sleep(4)
+    vobiz_source = "billed" if vobiz >= 0 else "estimate"
+    if vobiz < 0:
+        vobiz = costs.vobiz_estimate_inr(duration)
+    cost = {"vobiz": round(vobiz, 4), "gemini_live": round(call.usage.live_inr(), 4),
+            "gemini_research_quality": round(call.usage.flash_inr(), 4), "whatsapp": wa_cost}
+    total = round(sum(cost.values()), 2)
+    call.log(f"call ended after {duration}s ({call.end_reason}), cost ₹{total}", event="call_ended",
+             duration_secs=duration, end_reason=call.end_reason, saved=bool(call.summary),
+             entitlement=call.entitlement, cost_inr=total, cost_breakdown_inr=cost,
+             vobiz_cost_source=vobiz_source, tokens=call.usage.tokens(),
+             quality_overall=(q or {}).get("overall"))
+
     if config.SPREADSHEET_ID:
-        try:
-            integrations.append_row(
-                config.CALL_LOG_TAB,
-                ["Start", "Call", "Name", "Email", "Phone", "Duration (s)", "Ended", "Saved", "Transcript"],
-                [time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(call.t0)), call.sid, call.name, call.email,
-                 call.phone, round(time.time() - call.t0), call.end_reason,
-                 ",".join(sorted(call.tools_done)) or "no", text[:45000]])
-        except Exception as e:
-            call.log(f"call log failed: {e!r}")
+        _step(call, "call_log_row", integrations.append_row, config.CALL_LOG_TAB,
+              ["Start", "Call", "Name", "Email", "Phone", "Duration (s)", "Ended", "Saved", "Transcript",
+               "Plan", "Cost (₹)", "Vobiz (₹)", "Gemini live (₹)", "Gemini research+QA (₹)", "Quality"],
+              [time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(call.t0)), call.sid, call.name, call.email,
+               call.phone, duration, call.end_reason, ",".join(sorted(call.tools_done)) or "no",
+               text[:45000], call.entitlement, total, cost["vobiz"], cost["gemini_live"],
+               cost["gemini_research_quality"], (q or {}).get("overall", "")])
+
+    day = _step(call, "spend_ledger", store.add_spend, cost) or {}
+    if day.get("total_inr", 0) >= config.DAILY_SPEND_CAP_INR:
+        obs.alert("daily_cap", f"Daily spend cap reached: ₹{day['total_inr']:.0f}",
+                  f"Estimated spend today is ₹{day['total_inr']:.2f} across {day.get('calls')} calls, "
+                  f"reaching the cap of ₹{config.DAILY_SPEND_CAP_INR:.0f}. New calls are refused until "
+                  "midnight IST. Raise DAILY_SPEND_CAP_INR to allow more.", 12 * 3600)
+    check_balances()
+
+    _step(call, "profile_update", store.append_call_to_profile, call.phone, {
+        "date": datetime.now(tools.TZ).strftime("%d %b %Y, %I:%M %p"),
+        "duration": duration, "ended": call.end_reason,
+        "summary": call.summary, "transcript": text if call.transcript else "",
+        "resources_sent": [f"{i.get('title') or i.get('name')}: {i['url']}"
+                           for k in ("videos", "learning", "reading", "people") for i in found.get(k, [])]})
+    _step(call, "status_update", store.update, call.sid,
+          status="completed" if call.summary else "ended", resume="", history="",
+          summary_saved=bool(call.summary), ended_reason=call.end_reason)
+
+
+def check_balances() -> None:
+    """Low-balance alerts: Vobiz from its balance API; Gemini from this month's
+    estimated spend against the budget (AI Studio has no balance API)."""
     try:
-        # Remember this call so the next one can pick up where it left off.
-        store.append_call_to_profile(call.phone, {
-            "date": datetime.now(tools.TZ).strftime("%d %b %Y, %I:%M %p"),
-            "duration": round(time.time() - call.t0), "ended": call.end_reason,
-            "summary": call.summary, "transcript": "\n".join(call.transcript),
-            "resources_sent": [f"{i.get('title') or i.get('name')}: {i['url']}"
-                               for k in ("videos", "learning", "reading", "people") for i in found.get(k, [])]})
+        bal = vobiz_api.balance_inr()
+        obs.log("vobiz_balance", f"Vobiz balance ₹{bal:.2f}", balance_inr=bal)
+        if bal < config.VOBIZ_LOW_BALANCE_INR:
+            obs.alert("vobiz_low_balance", f"Vobiz balance low: ₹{bal:.2f}",
+                      f"Vobiz available balance is ₹{bal:.2f}, below ₹{config.VOBIZ_LOW_BALANCE_INR:.0f}. "
+                      "Calls fail when it runs out. Recharge in the Vobiz console.")
     except Exception as e:
-        call.log(f"profile update failed: {e!r}")
+        obs.log("vobiz_balance_failed", f"balance check failed: {e!r}", severity="WARNING")
     try:
-        store.update(call.sid, status="completed" if call.summary else "ended", resume="", history="",
-                     summary_saved=bool(call.summary), ended_reason=call.end_reason)
+        month = store.gemini_spend_this_month()
+        if month >= 0.8 * config.GEMINI_MONTHLY_BUDGET_INR:
+            obs.alert("gemini_budget", f"Gemini spend at ₹{month:.0f} this month",
+                      f"Estimated Gemini spend this month is ₹{month:.2f}, over 80% of the "
+                      f"₹{config.GEMINI_MONTHLY_BUDGET_INR:.0f} budget. Check prepaid credits in AI Studio "
+                      "(aistudio.google.com → Billing).", 24 * 3600)
     except Exception as e:
-        call.log(f"status update failed: {e!r}")
+        obs.log("gemini_budget_failed", f"budget check failed: {e!r}", severity="WARNING")

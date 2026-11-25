@@ -13,3 +13,9 @@ venv/
 .git/
 .archify/
 fake_session_agent.wav
+tests/
+docs/
+deploy/
+.github/
+.pytest_cache/
+regression.txt

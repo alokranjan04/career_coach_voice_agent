@@ -1,71 +1,99 @@
 # Disha — AI career coach (phone)
 
-Users upload a resume and enter their mobile number on the web page, and Disha
+Users verify their mobile number once with an SMS OTP, upload a resume, and Disha
 calls them through Vobiz. During the roughly 10-minute call, Disha asks questions
-grounded in the resume, helps the user name one goal and agree two or three next
-steps, then saves a summary to a Google Sheet and emails it to the user.
-
-Each number has a saved profile with the resume and every past call. Returning
-users only enter their number, and Disha picks up from the previous call.
+grounded in the resume, agrees a goal and a 30-day plan, then emails a summary with
+verified internet resources (and a short WhatsApp version). Each number has a profile,
+so returning users only enter their number and Disha continues from the last call.
 
 Built from the `telephony-voice-agent` skill template (the Mydoot pattern), with
-outbound calling added.
+outbound calling, memory, payments, compliance and observability added.
 
 ```
-Browser ── POST /api/call (form + resume) ──▶ Cloud Run (aiohttp)
-                                               ├─ profile (resume + past calls) → gs://career-coach-sessions-…/profiles/
-                                               ├─ call request → …/calls/ (1-day delete rule)
-                                               └─ Vobiz REST: make call (from +91 80654 81243)
-User's phone rings, picks up ── Vobiz POST /answer?sid&token ──▶ XML: open stream
-Vobiz ── WSS /stream (mu-law 8 kHz) ──▶ agent/pipeline.py ◀──WSS──▶ Gemini Live (gemini-3.8-live)
-                                          │ save_session_summary ─▶ Sheet "Sessions"
-                                          └ after the call ─▶ Vobiz hangup · summary email · "Call_Logs" row · call added to profile
+Browser ─ OTP (Identity Platform) ─▶ /api/verify ─▶ signed cookie: number verified, not asked again
+   └─ form + resume ─▶ /api/call ─▶ consent record · spend cap · free calls / day pass (Razorpay)
+                                    └─ Vobiz REST: call from +91 80654 81243
+Phone answered ─ Vobiz POST /answer ─▶ XML stream ─▶ WSS /stream ─▶ agent/pipeline.py ◀─▶ Gemini Live
+After the call ─▶ research (Gemini + Google Search, verified links) ─▶ email · WhatsApp (Twilio)
+               ─▶ quality score · cost per call · spend ledger · balance checks · profile memory
 ```
 
-## Files you edit
+## Plans
+
+First 3 calls free per number (counted when a call connects). Then a ₹499 day pass:
+up to 3 calls within 24 hours, paid with UPI, card or netbanking through Razorpay
+Checkout. The pass is granted by the checkout callback or the webhook, whichever
+arrives first, exactly once.
+
+## Files you edit most
 
 | File | What it is |
 |---|---|
-| `agent/prompt.md` | The coach's instructions. `{name}`, `{language}`, `{resume}` are filled per call. |
-| `agent/tools.json` | The `save_session_summary` tool the model calls at the end. |
-| `agent_config.json` | Name, model, voice, and the sheet tab and columns for the tool. |
+| `agent/prompt.md` | The coach's instructions. Changes are blocked from deploying unless the regression test passes. |
+| `agent/tools.json` | The `save_session_summary` tool. |
+| `agent_config.json` | Name, model, voice, Sheet columns. |
+| `agent/quality.py` + `docs/quality-rubric.md` | The quality rubric. |
+| `static/privacy.html`, `static/terms.html` | Legal pages: have a lawyer review them. |
 
-## Run locally
+## Tests
 
 ```bash
-cp .env.example .env        # fill it; Vobiz needs a public URL (ngrok) to reach /answer
-pip install -r requirements.txt
-python scripts/check_env.py
-python app.py               # open http://localhost:8080
+pip install -r requirements.txt -r requirements-dev.txt
+pytest --ignore=tests/regression                     # offline: fakes for every external service
+GEMINI_API_KEY=... python tests/regression/run_regression.py   # real Gemini Live, simulated callers
 ```
-
-`scripts/fake_call.py --sid SID --token TOKEN` simulates the Vobiz media stream for a
-call request already in the bucket.
 
 ## Deployment
 
-Cloud Run service `career-coach-voice-agent` in `asia-south1`, project
-`project-b2f8fd7f-3661-4447-8b6`, deployed from source like Mydoot:
+Push to `main`. GitHub Actions (`.github/workflows/deploy.yml`) runs the tests, runs
+the prompt regression test when the prompt, tools or rubric changed, then deploys to
+Cloud Run from source using keyless Workload Identity Federation, and checks `/health`.
 
-```bash
-gcloud run deploy career-coach-voice-agent --source=. --region=asia-south1 \
-  --project=project-b2f8fd7f-3661-4447-8b6 --account=tellyourjourney04@gmail.com
-```
+One-time setup (already done; safe to re-run): `bash deploy/setup-gcp.sh` and
+`bash deploy/observability.sh`.
 
-Later deploys keep every flag, secret and env var. Settings in place:
+Cloud Run service `career-coach-voice-agent`, `asia-south1`, project
+`project-b2f8fd7f-3661-4447-8b6`, runtime account `career-coach-runtime@…`.
+Settings are kept between deploys and changed with `gcloud run services update`:
 
-- Runtime service account `career-coach-runtime@…`, keyless.
-- Secrets from Secret Manager: `GEMINI_API_KEY`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `VOBIZ_AUTH_ID`, `VOBIZ_AUTH_TOKEN`.
-- Env vars: `VOBIZ_FROM_NUMBER`, `SESSIONS_BUCKET`, `PUBLIC_URL`, `GOOGLE_SPREADSHEET_ID`.
-- `--timeout=3600 --no-cpu-throttling --min-instances=0 --max-instances=3 --concurrency=20`.
+| Kind | Names |
+|---|---|
+| Secrets (Secret Manager) | `GEMINI_API_KEY`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `VOBIZ_AUTH_ID`, `VOBIZ_AUTH_TOKEN`, `SESSION_SECRET`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `TWILIO_AUTH_TOKEN` |
+| Env vars | `VOBIZ_FROM_NUMBER`, `SESSIONS_BUCKET`, `PUBLIC_URL`, `GOOGLE_SPREADSHEET_ID`, `FIREBASE_WEB_API_KEY`, `GCP_PROJECT`, `ADMIN_EMAIL`, `RAZORPAY_KEY_ID`, `TWILIO_ACCOUNT_SID`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_SID`, plus optional limits and prices in `agent/config.py` |
+| Flags | `--timeout=3600 --no-cpu-throttling --min-instances=0 --max-instances=3 --concurrency=20` |
 
-The Google Sheet must be shared as Editor with the runtime service account. Outgoing
-calls set their own answer URL, so the Vobiz number's console app is not changed.
+## Observability
 
-## Limits and safeguards
+- **Logs:** every line is a JSON event (`agent/obs.py`): `call_placed`, `call_started`,
+  `call_ended` (duration, cost breakdown, tokens, quality), `payment_captured`,
+  `otp_verified`, `alert`, errors. Filter by `labels.call_id` to follow one call.
+- **Dashboard:** Cloud Monitoring → "Disha career coach": calls, cost per call, duration,
+  quality, payments, errors, alerts.
+- **Alerts** (email to the admin): errors, app alerts, a spike in calls, site down.
+- **Cost per call** is logged and written to the Call_Logs tab: Vobiz's billed cost,
+  Gemini Live tokens (summed per turn), research and quality-review tokens, Google
+  Search queries, WhatsApp. Gemini prices are list estimates in `agent/config.py`.
 
-- A call is capped at 14 minutes, because Gemini audio sessions end at 15. At 11 minutes the coach is told to recap.
-- Each number can be called once every 5 minutes and 3 times a day. Only Indian mobile numbers are accepted.
-- Answer and stream URLs carry a single-use token. Call requests and rate-limit records are deleted after a day.
-- Profiles (`profiles/<phone>.json`: resume, name, email, call summaries and transcripts) are kept until deleted by hand. The web page never shows profile contents, and calls only go to the profile's own number.
-- Anyone with the page URL can make Disha call any Indian mobile number within those limits. Add sign-in or OTP verification before sharing widely.
+## Spending guardrails
+
+- Global daily cap (`DAILY_SPEND_CAP_INR`, default ₹1,500): new calls are refused for the rest of the IST day, and the admin is emailed.
+- Vobiz balance checked after every call and hourly; email below ₹200.
+- Gemini: AI Studio has no balance API, so estimated monthly Gemini spend is tracked against `GEMINI_MONTHLY_BUDGET_INR` (email at 80%), Gemini key/credit failures on a call alert immediately, and a ₹5,000/month Cloud Billing budget emails billing admins at 50/90/100%.
+- Per number: 5 minutes between calls, 3 calls a day.
+
+## Data protection (DPDP Act)
+
+Privacy policy `/privacy`, terms `/terms`, and `/my-data` (OTP-verified download and
+deletion). Consent is recorded for every call request (version, purposes, time, IP,
+browser). Profiles and transcripts are deleted 12 months after the last call by the
+daily job, which also prunes the Sheet. Payment records keep only a hash and the last
+4 digits of the number.
+
+## Quality
+
+See `docs/quality-rubric.md`: every call is scored, a weekly review email samples calls,
+and the regression test gates prompt changes.
+
+## WhatsApp
+
+See `docs/whatsapp-template.md` for the Twilio template to get approved.

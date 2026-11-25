@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My data · Disha AI Career Coach</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <p><a href="/">← Back to Disha</a></p>
+    <h1>My data</h1>
+    <p class="tagline">Download or delete everything Disha stores about your number: your profile, resume, call transcripts and summaries, and consent records.</p>
+
+    <section class="card">
+      <div id="verify-step" class="otp">
+        <label>Mobile number
+          <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210">
+        </label>
+        <button id="send" type="button">Send code</button>
+        <label id="code-label" hidden>6-digit code
+          <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+        </label>
+        <button id="confirm" type="button" hidden>Verify</button>
+        <p id="verify-status" class="status" role="status"></p>
+      </div>
+
+      <div id="actions" class="otp" hidden>
+        <p>Verified number: <b id="number"></b></p>
+        <a id="download" href="/api/my-data" download><button type="button" class="secondary">Download my data</button></a>
+        <button id="delete" type="button" class="danger">Delete my data</button>
+        <p class="hint">Deleting removes your profile, resume, call transcripts, summaries and consent records, and you'll start fresh, including any unused day pass. Payment records stay as tax law requires, holding only a coded form of your number.</p>
+        <p id="action-status" class="status" role="status"></p>
+      </div>
+      <div id="recaptcha"></div>
+    </section>
+  </main>
+  <footer><a href="/privacy">Privacy policy</a> · <a href="/terms">Terms</a></footer>
+  <script type="module">
+    import { friendlyOtpError, getConfig, getSession, sendCode, toE164 } from "/static/otp.js";
+    const $ = (id) => document.getElementById(id);
+    const status = (id, text, err = false) => { $(id).textContent = text; $(id).classList.toggle("error", err); };
+    const cfg = await getConfig();
+    let confirmCode = null;
+
+    function verified(phone) {
+      $("verify-step").hidden = true;
+      $("actions").hidden = false;
+      $("number").textContent = phone;
+    }
+
+    const s = await getSession();
+    if (s.phone) verified(s.phone);
+
+    $("send").addEventListener("click", async () => {
+      const e164 = toE164($("phone").value);
+      if (!e164) return status("verify-status", "Please enter a valid Indian mobile number.", true);
+      try {
+        status("verify-status", "Sending code…");
+        confirmCode = await sendCode(cfg, e164, "recaptcha");
+        $("code-label").hidden = $("confirm").hidden = false;
+        status("verify-status", "Code sent.");
+      } catch (err) { status("verify-status", friendlyOtpError(err), true); }
+    });
+
+    $("confirm").addEventListener("click", async () => {
+      try { verified(await confirmCode($("code").value.trim())); }
+      catch (err) { status("verify-status", friendlyOtpError(err), true); }
+    });
+
+    $("delete").addEventListener("click", async () => {
+      if (!confirm("Delete all your data from Disha? This can't be undone.")) return;
+      status("action-status", "Deleting…");
+      const res = await fetch("/api/my-data/delete", { method: "POST", credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        $("actions").hidden = true;
+        status("verify-status", "Your data has been deleted.");
+        $("verify-step").hidden = false;
+      } else status("action-status", data.error || "Couldn't delete. Please try again.", true);
+    });
+  </script>
+</body>
+</html>
