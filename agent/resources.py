@@ -116,12 +116,14 @@ def _search(task: str, context: str) -> tuple:
     return _parse_json(text), sources, supported.lower()
 
 
-VERIFY_PERSON = """Use Google Search to check whether this person is real and currently (or very recently) holds this role.
-Person: {name}
-Role: {headline}
-Company: {company}
-Return ONLY JSON: {{"confirmed": true or false, "current_title": "", "linkedin_url": ""}}
-"linkedin_url" is their public linkedin.com/in/ profile only if it appears in your search results, else ""."""
+# Plain-language question on purpose: asked for JSON only, the model tends to
+# answer from memory without searching, which leaves nothing to verify against.
+VERIFY_PERSON = """Search the web to find out: is {name} currently (or very recently) {headline} at {company}?
+Answer in two or three plain sentences saying what the search results show, and where.
+Then end with exactly three lines:
+VERDICT: yes or no
+TITLE: their current title according to the search results
+LINKEDIN: their linkedin.com/in/ profile URL if it appeared in the search results, else none"""
 
 
 def _verify_person(p: dict):
@@ -139,19 +141,21 @@ def _verify_person(p: dict):
     r.raise_for_status()
     candidate = r.json()["candidates"][0]
     chunks = candidate.get("groundingMetadata", {}).get("groundingChunks", [])
-    verdict = _parse_json("".join(x.get("text", "") for x in candidate.get("content", {}).get("parts", [])))
-    if not chunks or verdict.get("confirmed") is not True:
+    text = "".join(x.get("text", "") for x in candidate.get("content", {}).get("parts", []))
+    field = lambda key: (re.findall(rf"^\W*{key}:\s*(.+?)\s*$", text, re.M | re.I) or [""])[-1]
+    if not chunks or not field("VERDICT").lower().startswith("yes"):
         return None  # no search evidence: don't risk sending a made-up person
     sources = {_norm(u) for u in (_resolve(c.get("web", {}).get("uri", "")) for c in chunks) if u}
+    linkedin = re.search(r"https?://\S*linkedin\.com/in/[\w%-]+", field("LINKEDIN"))
     url = ""
-    for candidate_url in (verdict.get("linkedin_url"), p.get("url")):
+    for candidate_url in (linkedin.group(0) if linkedin else "", p.get("url")):
         url = _verified_url(candidate_url, sources)
         if "linkedin.com/in/" in url:
             break
         url = ""
     if not url:
         url = _people_search_link(name, p.get("company", ""))
-    headline = verdict.get("current_title") or p.get("headline", "")
+    headline = field("TITLE").strip("*` ") or p.get("headline", "")
     return {**p, "headline": headline, "url": url}
 
 
