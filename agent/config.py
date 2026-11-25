@@ -27,16 +27,30 @@ GEMINI_WS_URL = (
     ".v1beta.GenerativeService.BidiGenerateContent?key=" + GEMINI_API_KEY
 )  # contains the key — never log it
 
+TELEPHONY_PROVIDER = env("TELEPHONY_PROVIDER", "vobiz").lower()
+PUBLIC_URL = env("PUBLIC_URL").rstrip("/")
 PORT = int(env("PORT", "8080"))
+
+# Outbound calls (Vobiz REST API). FROM must be a Vobiz India number on this account.
+VOBIZ_AUTH_ID = env("VOBIZ_AUTH_ID")
+VOBIZ_AUTH_TOKEN = env("VOBIZ_AUTH_TOKEN")
+VOBIZ_FROM_NUMBER = env("VOBIZ_FROM_NUMBER").lstrip("+")
+RING_SECS = int(env("RING_SECS", "45"))
+
+# Pending calls (profile + resume text) live in a private bucket between the web
+# request and Vobiz's answer callback, which may reach a different instance.
+SESSIONS_BUCKET = env("SESSIONS_BUCKET")
+CALL_COOLDOWN_SECS = int(env("CALL_COOLDOWN_SECS", "300"))
+MAX_CALLS_PER_DAY = int(env("MAX_CALLS_PER_DAY", "3"))
 
 # Gemini audio sessions are capped at 15 minutes: nudge a recap, then end cleanly.
 WRAP_UP_SECS = int(env("WRAP_UP_SECS", "660"))
-MAX_SESSION_SECS = int(env("MAX_SESSION_SECS", "840"))
+MAX_CALL_SECS = int(env("MAX_CALL_SECS", "840"))
 MAX_RESUME_BYTES = 5 * 1024 * 1024
 MAX_RESUME_CHARS = 15000
 
 SPREADSHEET_ID = env("GOOGLE_SPREADSHEET_ID")
-SESSION_LOG_TAB = env("SESSION_LOG_TAB", "Session_Logs")
+CALL_LOG_TAB = env("CALL_LOG_TAB", "Call_Logs")
 
 GMAIL_USER = env("GMAIL_USER")
 GMAIL_APP_PASSWORD = env("GMAIL_APP_PASSWORD")

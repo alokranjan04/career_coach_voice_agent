@@ -1,7 +1,10 @@
 aiohttp>=3.9
 websockets>=12
 python-dotenv>=1.0
+requests>=2.31
 google-auth>=2.29
 google-api-python-client>=2.120
+google-cloud-storage>=2.16
 pypdf>=5.0
 python-docx>=1.1
+audioop-lts>=0.2; python_version >= "3.13"

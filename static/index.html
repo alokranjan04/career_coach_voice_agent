@@ -10,7 +10,7 @@
   <main>
     <header>
       <h1>Disha</h1>
-      <p class="tagline">Your AI career coach. Upload your resume, then talk it through for about 10 minutes.</p>
+      <p class="tagline">Your AI career coach. Upload your resume and Disha will call you for a 10-minute coaching conversation about it.</p>
     </header>
 
     <section id="setup" class="card">
@@ -18,7 +18,11 @@
         <label>Your name
           <input id="name" name="name" required maxlength="80" autocomplete="name">
         </label>
-        <label>Email for your session summary
+        <label>Mobile number
+          <input id="phone" name="phone" type="tel" required inputmode="tel" autocomplete="tel" placeholder="98765 43210">
+          <span class="hint">Indian mobile numbers only. Disha calls from +91 80654 81243.</span>
+        </label>
+        <label>Email for your call summary
           <input id="email" name="email" type="email" required maxlength="120" autocomplete="email">
         </label>
         <label>Language
@@ -31,22 +35,20 @@
           <input id="resume" name="resume" type="file" accept=".pdf,.docx,.txt" required>
         </label>
         <label class="consent">
-          <input id="consent" type="checkbox" required>
-          <span>I understand Disha is an AI. My resume and voice are processed by Google Gemini, and a session summary is saved and emailed to me.</span>
+          <input id="consent" name="consent" type="checkbox" value="yes" required>
+          <span>I want Disha to call this number now. I understand Disha is an AI, my resume and the call are processed by Google Gemini, and a summary is saved and emailed to me.</span>
         </label>
-        <button id="start" type="submit">Upload resume and start talking</button>
+        <button id="start" type="submit">Call me now</button>
         <p id="setup-status" class="status" role="status"></p>
       </form>
     </section>
 
-    <section id="talk" class="card" hidden>
+    <section id="calling" class="card" hidden>
       <div class="talk-head">
         <div id="orb" class="orb" aria-hidden="true"></div>
-        <p id="talk-status" class="status" role="status">Connecting…</p>
+        <p id="call-status" class="status" role="status" aria-live="polite"></p>
       </div>
-      <ol id="transcript" class="transcript" aria-live="polite"></ol>
-      <button id="stop" type="button" class="secondary">End session</button>
-      <button id="again" type="button" hidden>Start a new session</button>
+      <button id="again" type="button" class="secondary" hidden>Back</button>
     </section>
   </main>
   <script src="/static/app.js"></script>
