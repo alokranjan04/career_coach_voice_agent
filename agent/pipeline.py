@@ -7,7 +7,7 @@ call avoids clicks at chunk boundaries. Read the skill's references/architecture
 
 Each call belongs to a call request (agent/store.py) made from the web page: the
 stream URL carries its sid and a one-time token, and the request holds the
-user's name, email, language and resume text.
+user's name, email, resume text and a digest of their previous calls.
 """
 import asyncio
 import audioop
@@ -16,6 +16,7 @@ import json
 import secrets
 import time
 import traceback
+from datetime import datetime
 
 import websockets
 from aiohttp import WSMsgType, web
@@ -31,7 +32,7 @@ class Call:
     def __init__(self, rec: dict):
         self.sid = rec["sid"]
         self.name, self.email, self.phone = rec["name"], rec["email"], rec["phone"]
-        self.language, self.resume = rec["language"], rec["resume"]
+        self.resume, self.history = rec["resume"], rec.get("history", "")
         self.call_uuid = rec.get("call_uuid", "")
         self.t0 = time.time()
         self.stream_id = ""
@@ -75,7 +76,7 @@ def _setup_message(call: Call) -> dict:
         },
         "inputAudioTranscription": {},
         "outputAudioTranscription": {},
-        "systemInstruction": {"parts": [{"text": config.system_prompt(call.name, call.language, call.resume)}]},
+        "systemInstruction": {"parts": [{"text": config.system_prompt(call.name, call.resume, call.history)}]},
         "tools": config.TOOL_DECLARATIONS,
     }}
 
@@ -112,7 +113,7 @@ async def call_handler(request: web.Request) -> web.WebSocketResponse:
     call = Call(rec)
     if phone.needs_start:
         call.stream_id = start.get("streamId", "")
-    call.log(f"call started language={call.language} resume_chars={len(call.resume)}")
+    call.log(f"call started resume_chars={len(call.resume)} history_chars={len(call.history)}")
     await asyncio.to_thread(store.update, call.sid, status="in_call", token="")  # token is single-use
     try:
         async with websockets.connect(config.GEMINI_WS_URL, open_timeout=15, ping_interval=20,
@@ -319,14 +320,22 @@ def _after_call(call: Call) -> None:
         try:
             integrations.append_row(
                 config.CALL_LOG_TAB,
-                ["Start", "Call", "Name", "Email", "Phone", "Language", "Duration (s)", "Ended", "Saved", "Transcript"],
+                ["Start", "Call", "Name", "Email", "Phone", "Duration (s)", "Ended", "Saved", "Transcript"],
                 [time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(call.t0)), call.sid, call.name, call.email,
-                 call.phone, call.language, round(time.time() - call.t0), call.end_reason,
+                 call.phone, round(time.time() - call.t0), call.end_reason,
                  ",".join(sorted(call.tools_done)) or "no", text[:45000]])
         except Exception as e:
             call.log(f"call log failed: {e!r}")
     try:
-        store.update(call.sid, status="completed" if call.summary else "ended", resume="",
+        # Remember this call so the next one can pick up where it left off.
+        store.append_call_to_profile(call.phone, {
+            "date": datetime.now(tools.TZ).strftime("%d %b %Y, %I:%M %p"),
+            "duration": round(time.time() - call.t0), "ended": call.end_reason,
+            "summary": call.summary, "transcript": "\n".join(call.transcript)})
+    except Exception as e:
+        call.log(f"profile update failed: {e!r}")
+    try:
+        store.update(call.sid, status="completed" if call.summary else "ended", resume="", history="",
                      summary_saved=bool(call.summary), ended_reason=call.end_reason)
     except Exception as e:
         call.log(f"status update failed: {e!r}")

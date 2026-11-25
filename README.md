@@ -5,17 +5,21 @@ calls them through Vobiz. During the roughly 10-minute call, Disha asks question
 grounded in the resume, helps the user name one goal and agree two or three next
 steps, then saves a summary to a Google Sheet and emails it to the user.
 
+Each number has a saved profile with the resume and every past call. Returning
+users only enter their number, and Disha picks up from the previous call.
+
 Built from the `telephony-voice-agent` skill template (the Mydoot pattern), with
 outbound calling added.
 
 ```
 Browser ── POST /api/call (form + resume) ──▶ Cloud Run (aiohttp)
-                                               ├─ resume text → gs://career-coach-sessions-… (1-day delete rule)
+                                               ├─ profile (resume + past calls) → gs://career-coach-sessions-…/profiles/
+                                               ├─ call request → …/calls/ (1-day delete rule)
                                                └─ Vobiz REST: make call (from +91 80654 81243)
 User's phone rings, picks up ── Vobiz POST /answer?sid&token ──▶ XML: open stream
 Vobiz ── WSS /stream (mu-law 8 kHz) ──▶ agent/pipeline.py ◀──WSS──▶ Gemini Live (gemini-3.8-live)
                                           │ save_session_summary ─▶ Sheet "Sessions"
-                                          └ after the call ─▶ Vobiz hangup · summary email · "Call_Logs" row · resume deleted
+                                          └ after the call ─▶ Vobiz hangup · summary email · "Call_Logs" row · call added to profile
 ```
 
 ## Files you edit
@@ -62,5 +66,6 @@ calls set their own answer URL, so the Vobiz number's console app is not changed
 
 - A call is capped at 14 minutes, because Gemini audio sessions end at 15. At 11 minutes the coach is told to recap.
 - Each number can be called once every 5 minutes and 3 times a day. Only Indian mobile numbers are accepted.
-- Answer and stream URLs carry a single-use token, and the resume text is deleted when the call ends.
+- Answer and stream URLs carry a single-use token. Call requests and rate-limit records are deleted after a day.
+- Profiles (`profiles/<phone>.json`: resume, name, email, call summaries and transcripts) are kept until deleted by hand. The web page never shows profile contents, and calls only go to the profile's own number.
 - Anyone with the page URL can make Disha call any Indian mobile number within those limits. Add sign-in or OTP verification before sharing widely.

@@ -15,22 +15,24 @@
 
     <section id="setup" class="card">
       <form id="setup-form">
-        <label>Your name
-          <input id="name" name="name" required maxlength="80" autocomplete="name">
-        </label>
         <label>Mobile number
           <input id="phone" name="phone" type="tel" required inputmode="tel" autocomplete="tel" placeholder="98765 43210">
           <span class="hint">Indian mobile numbers only. Disha calls from +91 80654 81243.</span>
         </label>
+        <p class="returning">Spoken with Disha before? Just enter your number and click <b>Call me now</b>. Disha remembers your resume and your previous calls. Fill in the rest only to change them.</p>
+        <label>Your name
+          <input id="name" name="name" maxlength="80" autocomplete="name">
+        </label>
         <label>Email for your call summary
-          <input id="email" name="email" type="email" required maxlength="120" autocomplete="email">
+          <input id="email" name="email" type="email" maxlength="120" autocomplete="email">
         </label>
         <label>Resume (PDF, DOCX or TXT, up to 5 MB)
-          <input id="resume" name="resume" type="file" accept=".pdf,.docx,.txt" required>
+          <input id="resume" name="resume" type="file" accept=".pdf,.docx,.txt">
+          <span class="hint">Required for your first call. Upload again only to replace it.</span>
         </label>
         <label class="consent">
           <input id="consent" name="consent" type="checkbox" value="yes" required>
-          <span>I want Disha to call this number now. I understand Disha is an AI, my resume and the call are processed by Google Gemini, and a summary is saved and emailed to me.</span>
+          <span>I want Disha to call this number now. I understand Disha is an AI, my resume and calls are processed by Google Gemini, and my resume and call transcripts are kept so Disha can remember them on future calls. A summary is emailed to me.</span>
         </label>
         <button id="start" type="submit">Call me now</button>
         <p id="setup-status" class="status" role="status"></p>

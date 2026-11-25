@@ -56,7 +56,8 @@ GMAIL_USER = env("GMAIL_USER")
 GMAIL_APP_PASSWORD = env("GMAIL_APP_PASSWORD")
 
 
-def system_prompt(name: str, language: str, resume: str) -> str:
-    # str.replace, not format(): resumes contain braces.
-    return (PROMPT_TEMPLATE.replace("{name}", name).replace("{language}", language)
+def system_prompt(name: str, resume: str, history: str) -> str:
+    # str.replace, not format(): resumes contain braces. {resume} and {history}
+    # last, so text inside them is never treated as a placeholder.
+    return (PROMPT_TEMPLATE.replace("{name}", name).replace("{history}", history)
             .replace("{resume}", resume))
