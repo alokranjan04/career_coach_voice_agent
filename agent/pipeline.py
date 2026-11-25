@@ -21,7 +21,7 @@ from datetime import datetime
 import websockets
 from aiohttp import WSMsgType, web
 
-from agent import config, integrations, store, telephony, tools, vobiz_api
+from agent import config, integrations, resources, store, telephony, tools, vobiz_api
 
 GREETING_GUARD_MAX_SECS = 20   # release caller audio even if the greeting never completes
 POST_SAVE_MAX_SECS = 30        # hang up even if the goodbye never arrives
@@ -286,16 +286,19 @@ async def _watchdog(ws, gem, call: Call) -> None:
             return
 
 
-def _summary_email(call: Call) -> str:
+def _summary_email(call: Call, resources_text: str) -> str:
     sm = call.summary
-    sections = [("Your goal", "goal"), ("Where you are now", "current_situation"),
-                ("Your strengths", "strengths"), ("What's holding you back", "obstacles"),
-                ("Resume suggestions", "resume_feedback"), ("Your next steps", "next_steps")]
+    sections = [("Your goal", "goal"), ("Target role", "target_role"),
+                ("Where you are now", "current_situation"), ("Your strengths", "strengths"),
+                ("Biggest gaps to close", "skill_gaps"), ("What's holding you back", "obstacles"),
+                ("Resume suggestions", "resume_feedback"), ("Your 30-day plan", "next_steps")]
     body = [f"Hi {call.name},", "",
             "Thanks for your call with Disha, your AI career coach. Here's your summary.", ""]
     for title, key in sections:
         if str(sm.get(key, "")).strip():
             body += [title.upper(), str(sm[key]).strip(), ""]
+    if resources_text:
+        body += [resources_text]
     body += ["All the best!", "Disha", "",
              "This summary was written by an AI coach. Treat it as guidance, not professional advice."]
     return "\n".join(body)
@@ -310,9 +313,16 @@ def _after_call(call: Call) -> None:
     except Exception as e:
         call.log(f"hangup failed: {e!r}")
     text = "\n".join(call.transcript) or "(empty)"
+    found = {}
     if call.summary:
         try:
-            if integrations.send_email(call.email, "Your career coaching summary", _summary_email(call)):
+            # Internet research for the goal; only verified links survive.
+            found = resources.find_resources(call.summary, call.resume)
+        except Exception as e:
+            call.log(f"research failed: {e!r}")
+        try:
+            body = _summary_email(call, resources.email_section(found) if found else "")
+            if integrations.send_email(call.email, "Your career coaching summary and resources", body):
                 call.log("summary email sent")
         except Exception as e:
             call.log(f"email failed: {e!r}")
@@ -331,7 +341,9 @@ def _after_call(call: Call) -> None:
         store.append_call_to_profile(call.phone, {
             "date": datetime.now(tools.TZ).strftime("%d %b %Y, %I:%M %p"),
             "duration": round(time.time() - call.t0), "ended": call.end_reason,
-            "summary": call.summary, "transcript": "\n".join(call.transcript)})
+            "summary": call.summary, "transcript": "\n".join(call.transcript),
+            "resources_sent": [f"{i.get('title') or i.get('name')}: {i['url']}"
+                               for k in ("videos", "learning", "reading", "people") for i in found.get(k, [])]})
     except Exception as e:
         call.log(f"profile update failed: {e!r}")
     try:

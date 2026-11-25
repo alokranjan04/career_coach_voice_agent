@@ -87,6 +87,8 @@ def history_text(profile: dict) -> str:
             lines += [f"{k.replace('_', ' ').capitalize()}: {v}" for k, v in summary.items() if str(v).strip()]
         else:
             lines.append("No summary was saved: the call ended before the recap.")
+        if c.get("resources_sent"):
+            lines.append("Resources emailed after this call: " + "; ".join(c["resources_sent"]))
         transcript = c.get("transcript", "")
         if transcript and budget - len(transcript) > 0:
             lines += ["Transcript:", transcript]

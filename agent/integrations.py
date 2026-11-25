@@ -51,9 +51,11 @@ def append_row(tab: str, header: list, row: list) -> None:
         if tab not in [s["properties"]["title"] for s in meta.get("sheets", [])]:
             sheets.batchUpdate(spreadsheetId=config.SPREADSHEET_ID, body={
                 "requests": [{"addSheet": {"properties": {"title": tab}}}]}).execute()
-        existing = values.get(spreadsheetId=config.SPREADSHEET_ID,
-                              range=f"{tab}!A1:A1").execute().get("values")
-        if not existing:
+        existing = (values.get(spreadsheetId=config.SPREADSHEET_ID,
+                               range=f"{tab}!1:1").execute().get("values") or [[]])[0]
+        # Write the header if the tab is empty, or extend it when columns were
+        # added at the end (older rows stay aligned).
+        if not existing or (existing != header and header[:len(existing)] == existing):
             values.update(spreadsheetId=config.SPREADSHEET_ID, range=f"{tab}!A1",
                           valueInputOption="RAW", body={"values": [header]}).execute()
         _HEADERS_DONE.add(tab)

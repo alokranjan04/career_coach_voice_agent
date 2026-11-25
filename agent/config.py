@@ -31,6 +31,10 @@ TELEPHONY_PROVIDER = env("TELEPHONY_PROVIDER", "vobiz").lower()
 PUBLIC_URL = env("PUBLIC_URL").rstrip("/")
 PORT = int(env("PORT", "8080"))
 
+# Post-call research (agent/resources.py): text model with Google Search grounding.
+RESEARCH_MODEL = env("RESEARCH_MODEL", "gemini-3.8-flash")
+RESEARCH_ENABLED = env("RESEARCH_ENABLED", "1") == "1"
+
 # Outbound calls (Vobiz REST API). FROM must be a Vobiz India number on this account.
 VOBIZ_AUTH_ID = env("VOBIZ_AUTH_ID")
 VOBIZ_AUTH_TOKEN = env("VOBIZ_AUTH_TOKEN")

@@ -9,7 +9,7 @@
     "save_session_summary": {
       "handler": "save_record",
       "sheet_tab": "Sessions",
-      "columns": ["current_situation", "goal", "strengths", "obstacles", "resume_feedback", "next_steps", "follow_up_wanted"],
+      "columns": ["current_situation", "goal", "strengths", "obstacles", "resume_feedback", "next_steps", "follow_up_wanted", "target_role", "skill_gaps"],
       "ends_call": true
     }
   }
