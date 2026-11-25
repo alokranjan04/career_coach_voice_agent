@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+*credentials*.json
+*service-account*.json
+*-key*.json
+recordings/
+__pycache__/
+venv/
+.venv/
+fake_session_agent.wav

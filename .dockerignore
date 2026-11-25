@@ -1,0 +1,15 @@
+# Secrets — never bake into the image
+.env
+.env.*
+*credentials*.json
+*service-account*.json
+*-key*.json
+# Local artefacts
+recordings/
+__pycache__/
+*.pyc
+venv/
+.venv/
+.git/
+.archify/
+fake_session_agent.wav

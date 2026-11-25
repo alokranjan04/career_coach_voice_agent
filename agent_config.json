@@ -1,0 +1,16 @@
+{
+  "name": "Disha Career Coach",
+  "model": "models/gemini-3.8-live",
+  "voice": "Aoede",
+  "utc_offset_minutes": 330,
+  "prompt_file": "agent/prompt.md",
+  "tools_file": "agent/tools.json",
+  "tools": {
+    "save_session_summary": {
+      "handler": "save_record",
+      "sheet_tab": "Sessions",
+      "columns": ["current_situation", "goal", "strengths", "obstacles", "resume_feedback", "next_steps", "follow_up_wanted"],
+      "ends_call": true
+    }
+  }
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "function_declarations": [
+      {
+        "name": "save_session_summary",
+        "description": "Save the coaching session summary. Call this ONLY after you have recapped the session and the user agreed the recap is right, and BEFORE you say goodbye.",
+        "behavior": "BLOCKING",
+        "parameters": {
+          "type": "OBJECT",
+          "properties": {
+            "current_situation": { "type": "STRING", "description": "The user's current role and situation in one or two sentences, as they described it" },
+            "goal": { "type": "STRING", "description": "The career goal the user agreed on, in their words" },
+            "strengths": { "type": "STRING", "description": "Two or three strengths drawn from the resume and the conversation" },
+            "obstacles": { "type": "STRING", "description": "What the user said is holding them back" },
+            "resume_feedback": { "type": "STRING", "description": "The specific resume improvements you suggested; empty if none" },
+            "next_steps": { "type": "STRING", "description": "The two or three concrete next steps the user agreed to, as a numbered list" },
+            "follow_up_wanted": { "type": "STRING", "description": "'yes' or 'no': whether the user wants a follow-up session" }
+          },
+          "required": ["current_situation", "goal", "obstacles", "next_steps", "follow_up_wanted"]
+        }
+      }
+    ]
+  }
+]

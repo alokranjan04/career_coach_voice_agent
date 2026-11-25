@@ -1,0 +1,7 @@
+aiohttp>=3.9
+websockets>=12
+python-dotenv>=1.0
+google-auth>=2.29
+google-api-python-client>=2.120
+pypdf>=5.0
+python-docx>=1.1

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Disha · AI Career Coach</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Disha</h1>
+      <p class="tagline">Your AI career coach. Upload your resume, then talk it through for about 10 minutes.</p>
+    </header>
+
+    <section id="setup" class="card">
+      <form id="setup-form">
+        <label>Your name
+          <input id="name" name="name" required maxlength="80" autocomplete="name">
+        </label>
+        <label>Email for your session summary
+          <input id="email" name="email" type="email" required maxlength="120" autocomplete="email">
+        </label>
+        <label>Language
+          <select id="language" name="language">
+            <option>English</option>
+            <option>Hinglish</option>
+          </select>
+        </label>
+        <label>Resume (PDF, DOCX or TXT, up to 5 MB)
+          <input id="resume" name="resume" type="file" accept=".pdf,.docx,.txt" required>
+        </label>
+        <label class="consent">
+          <input id="consent" type="checkbox" required>
+          <span>I understand Disha is an AI. My resume and voice are processed by Google Gemini, and a session summary is saved and emailed to me.</span>
+        </label>
+        <button id="start" type="submit">Upload resume and start talking</button>
+        <p id="setup-status" class="status" role="status"></p>
+      </form>
+    </section>
+
+    <section id="talk" class="card" hidden>
+      <div class="talk-head">
+        <div id="orb" class="orb" aria-hidden="true"></div>
+        <p id="talk-status" class="status" role="status">Connecting…</p>
+      </div>
+      <ol id="transcript" class="transcript" aria-live="polite"></ol>
+      <button id="stop" type="button" class="secondary">End session</button>
+      <button id="again" type="button" hidden>Start a new session</button>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
