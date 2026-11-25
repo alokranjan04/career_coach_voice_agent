@@ -25,6 +25,7 @@ import time
 from aiohttp import web
 
 from agent import auth, config, integrations, obs, payments, quality, store, telephony, vobiz_api
+from agent import whatsapp as wa
 from agent.pipeline import call_handler, check_balances
 from agent.resume import ResumeError, extract_text
 
@@ -79,7 +80,7 @@ async def public_config(request: web.Request) -> web.Response:
         "razorpay_key_id": config.RAZORPAY_KEY_ID,
         "free_calls": config.FREE_CALLS, "day_pass_rupees": config.DAY_PASS_PAISE // 100,
         "day_pass_calls": config.DAY_PASS_CALLS, "day_pass_hours": config.DAY_PASS_HOURS,
-        "whatsapp_available": bool(config.TWILIO_ACCOUNT_SID), "consent_version": config.CONSENT_VERSION})
+        "whatsapp_available": bool(wa.enabled()), "consent_version": config.CONSENT_VERSION})
 
 
 async def session(request: web.Request) -> web.Response:
@@ -170,7 +171,7 @@ async def request_call(request: web.Request) -> web.Response:
     except store.RateLimited as e:
         return _error(str(e), 429)
 
-    whatsapp = form.get("whatsapp") == "yes"
+    whatsapp = form.get("whatsapp") == "yes" and bool(wa.enabled())  # off unless Twilio is fully set up
     purposes = ["coaching_call", "resume_and_call_memory", "email_summary"] + (["whatsapp_summary"] if whatsapp else [])
     await asyncio.to_thread(store.record_consent, phone, purposes, _client_ip(request),
                             request.headers.get("User-Agent", ""))
@@ -376,7 +377,7 @@ async def health(request: web.Request) -> web.Response:
         "email_set": bool(config.GMAIL_USER and config.GMAIL_APP_PASSWORD),
         "otp_set": bool(config.FIREBASE_WEB_API_KEY and config.SESSION_SECRET),
         "payments_set": payments.enabled(),
-        "whatsapp_set": bool(config.TWILIO_ACCOUNT_SID and config.TWILIO_CONTENT_SID),
+        "whatsapp_set": bool(wa.enabled()),
     })
 
 

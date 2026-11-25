@@ -87,7 +87,7 @@ async def run_persona(name: str, max_turns: int) -> dict:
             "prebuiltVoiceConfig": {"voiceName": config.AGENT.get("voice", "Aoede")}}}},
         "outputAudioTranscription": {},
         "systemInstruction": {"parts": [{"text": config.system_prompt(
-            user, resume, "(none: this is the first call)", "test@example.com", True)}]},
+            user, resume, "(none: this is the first call)", "test@example.com", False)}]},
         "tools": config.TOOL_DECLARATIONS}}
     transcript, saved = [], False
     async with websockets.connect(config.GEMINI_WS_URL, max_size=None, open_timeout=20) as gem:

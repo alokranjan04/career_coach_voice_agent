@@ -10,7 +10,7 @@ const MESSAGES = {
   calling: ["ringing", "Calling you now. Please pick up when your phone rings."],
   answered: ["speaking", "Connecting you to Disha…"],
   in_call: ["speaking", "You're on the call with Disha."],
-  completed: ["", "Call complete. Your summary is on its way to your inbox (and WhatsApp, if you chose it)."],
+  completed: ["", "Call complete. Your summary is on its way to your inbox."],
   ended: ["", "The call has ended. If it ended early, you can request another call in a few minutes."],
   no_answer: ["", "We couldn't reach you. Check your phone is on and try again in a few minutes."],
   failed: ["", "We couldn't place the call. Please try again."],
@@ -196,5 +196,9 @@ $("again").addEventListener("click", async () => {
 
 (async () => {
   [cfg, session] = await Promise.all([getConfig(), getSession()]);
+  if (cfg.whatsapp_available) {  // only offered when WhatsApp sending is set up
+    $("whatsapp-option").hidden = false;
+    $("whatsapp").checked = true;
+  }
   renderSession();
 })();

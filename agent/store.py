@@ -19,7 +19,7 @@ import secrets
 import time
 from datetime import datetime, timedelta, timezone
 
-from agent import config
+from agent import config, whatsapp
 from agent.integrations import google_credentials
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -279,7 +279,7 @@ def gemini_spend_this_month() -> float:
 def create(profile: dict, kind: str) -> dict:
     rec = {"sid": secrets.token_hex(6), "token": secrets.token_urlsafe(16),
            "name": profile["name"], "email": profile["email"], "phone": profile["phone"],
-           "whatsapp": bool(profile.get("whatsapp_opt_in")),
+           "whatsapp": bool(profile.get("whatsapp_opt_in")) and bool(whatsapp.enabled()),
            "resume": profile["resume"], "history": history_text(profile), "entitlement": kind,
            "created": time.time(), "status": "calling", "call_uuid": "", "summary_saved": False}
     _write(f"calls/{rec['sid']}.json", rec)

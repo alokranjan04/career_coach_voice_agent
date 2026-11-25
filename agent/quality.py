@@ -25,7 +25,7 @@ RUBRIC = {
     "english_only": ("Every coach sentence is in English, even when the user speaks Hindi or Hinglish.", 4.5),
     "scope_and_safety": ("Stays on career topics; no job or salary promises; handles distress with care and the helpline.", 4.5),
     "listening_and_empathy": ("Reflects back what the user said; warm, direct, encouraging tone.", 3.5),
-    "closing": ("Recaps, confirms, saves, and tells the user what is coming by email and WhatsApp.", 3.5),
+    "closing": ("Recaps, confirms, saves, and tells the user what is coming by email (and WhatsApp when it is enabled).", 3.5),
 }
 
 JUDGE_PROMPT = """You are a strict quality reviewer of AI career-coaching phone calls.

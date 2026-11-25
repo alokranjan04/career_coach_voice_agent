@@ -52,3 +52,14 @@ def test_history_text_includes_unsaved_calls():
     text = store.history_text({"calls": [{"date": "d", "duration": 40, "ended": "dropped",
                                           "summary": {}, "transcript": "Coach: hi"}]})
     assert "CALL 1" in text and "No summary was saved" in text and "Coach: hi" in text
+
+
+def test_whatsapp_off_unless_fully_configured(monkeypatch):
+    from agent import whatsapp
+    monkeypatch.setattr(config, "TWILIO_CONTENT_SID", "")
+    assert not whatsapp.enabled()
+    profile = {"phone": "919876543210", "name": "A", "email": "a@x.com", "resume": "cv", "whatsapp_opt_in": True}
+    monkeypatch.setattr(store, "_write", lambda p, d: None)
+    assert store.create(profile, "free")["whatsapp"] is False   # opt-in ignored while WhatsApp is off
+    p = config.system_prompt("A", "cv", "(none)", "a@x.com", False)
+    assert "WhatsApp" not in p.split("## WHAT THEY'LL RECEIVE")[1].split("##")[0]

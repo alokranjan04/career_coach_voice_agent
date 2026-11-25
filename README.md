@@ -3,7 +3,7 @@
 Users verify their mobile number once with an SMS OTP, upload a resume, and Disha
 calls them through Vobiz. During the roughly 10-minute call, Disha asks questions
 grounded in the resume, agrees a goal and a 30-day plan, then emails a summary with
-verified internet resources (and a short WhatsApp version). Each number has a profile,
+verified internet resources. Each number has a profile,
 so returning users only enter their number and Disha continues from the last call.
 
 Built from the `telephony-voice-agent` skill template (the Mydoot pattern), with
@@ -14,7 +14,7 @@ Browser ─ OTP (Identity Platform) ─▶ /api/verify ─▶ signed cookie: num
    └─ form + resume ─▶ /api/call ─▶ consent record · spend cap · free calls / day pass (Razorpay)
                                     └─ Vobiz REST: call from +91 80654 81243
 Phone answered ─ Vobiz POST /answer ─▶ XML stream ─▶ WSS /stream ─▶ agent/pipeline.py ◀─▶ Gemini Live
-After the call ─▶ research (Gemini + Google Search, verified links) ─▶ email · WhatsApp (Twilio)
+After the call ─▶ research (Gemini + Google Search, verified links) ─▶ email
                ─▶ quality score · cost per call · spend ledger · balance checks · profile memory
 ```
 
@@ -96,4 +96,6 @@ and the regression test gates prompt changes.
 
 ## WhatsApp
 
-See `docs/whatsapp-template.md` for the Twilio template to get approved.
+Built but switched off: it turns on only when `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+`TWILIO_WHATSAPP_FROM` and an approved `TWILIO_CONTENT_SID` are all set. Until then the
+page doesn't offer it and Disha doesn't mention it. Setup: `docs/whatsapp-template.md`.

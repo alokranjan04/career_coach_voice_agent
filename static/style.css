@@ -10,6 +10,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Class rules like .consent { display: flex } would otherwise override the hidden attribute. */
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
