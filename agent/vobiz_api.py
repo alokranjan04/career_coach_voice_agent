@@ -24,7 +24,9 @@ def place_call(to: str, answer_url: str, hangup_url: str) -> str:
     body = {"from": config.VOBIZ_FROM_NUMBER, "to": to,
             "answer_url": answer_url, "answer_method": "POST",
             "hangup_url": hangup_url, "hangup_method": "POST",
-            "hangup_on_ring": config.RING_SECS,
+            # ring_timeout: give up if unanswered. NOT hangup_on_ring, which ends
+            # the call that many seconds after ringing starts, even once answered.
+            "ring_timeout": config.RING_SECS,
             "time_limit": config.MAX_CALL_SECS + 60,
             "caller_name": "Disha Career Coach"}
     r = requests.post(f"{API}/Account/{config.VOBIZ_AUTH_ID}/Call/", json=body,

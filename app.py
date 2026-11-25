@@ -24,7 +24,6 @@ for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(encoding="utf-8", errors="replace")
 
 STATIC = config.ROOT / "static"
-LANGUAGES = {"English", "Hinglish"}
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$")
 
 
@@ -63,7 +62,7 @@ async def request_call(request: web.Request) -> web.Response:
     name = re.sub(r"[\x00-\x1f<>{}]", "", str(form.get("name", ""))).strip()[:80]
     email = str(form.get("email", "")).strip()[:120]
     phone = _indian_mobile(str(form.get("phone", "")))
-    language = form.get("language") if form.get("language") in LANGUAGES else "English"
+    language = "English"  # coaching is English-only (agent/prompt.md)
     upload = form.get("resume")
     if not name:
         return _error("Please enter your name.")
