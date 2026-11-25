@@ -13,8 +13,8 @@ from agent import config
 
 
 def enabled() -> bool:
-    return bool(config.TWILIO_ACCOUNT_SID and config.TWILIO_AUTH_TOKEN
-                and config.TWILIO_WHATSAPP_FROM and config.TWILIO_CONTENT_SID)
+    return bool(config.TWILIO_ACCOUNT_SID and config.TWILIO_AUTH_TOKEN and config.TWILIO_CONTENT_SID
+                and re.fullmatch(r"whatsapp:\+\d{8,15}", config.TWILIO_WHATSAPP_FROM))
 
 
 def _flat(text: str, limit: int) -> str:
