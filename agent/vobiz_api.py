@@ -28,7 +28,7 @@ def place_call(to: str, answer_url: str, hangup_url: str) -> str:
             # the call that many seconds after ringing starts, even once answered.
             "ring_timeout": config.RING_SECS,
             "time_limit": config.MAX_CALL_SECS + 60,
-            "caller_name": "Disha Career Coach"}
+            "caller_name": "Ava · Tell Your Journey"}
     r = requests.post(f"{API}/Account/{config.VOBIZ_AUTH_ID}/Call/", json=body,
                       headers=_headers(), timeout=15)
     if r.status_code == 402:

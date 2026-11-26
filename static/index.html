@@ -3,75 +3,286 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Disha · AI Career Coach</title>
+  <title>Ava · AI Career Coach on a phone call | Tell Your Journey</title>
+  <meta name="description" content="Ava is an AI career coach who calls you. Share your resume or a short profile and get a specific goal, a 30-day plan and hand-picked resources in a 10-minute call.">
+  <meta name="theme-color" content="#4338ca">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234f46e5'/%3E%3Cstop offset='1' stop-color='%230ea5e9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M18 40c6-16 22-16 28 0' stroke='white' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='24' r='5' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
+  <script>document.documentElement.classList.add("js");setTimeout(function(){document.querySelectorAll(".reveal").forEach(function(e){e.classList.add("in")})},2500);</script>
   <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
 </head>
 <body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="/" aria-label="Tell Your Journey home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">Tell Your Journey</span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="#how">How it works</a>
+        <a href="#benefits">What you get</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="btn btn-primary btn-sm" href="#start">Get a free call</a>
+    </div>
+  </header>
+
   <main>
-    <header>
-      <h1>Disha</h1>
-      <p class="tagline">Your AI career coach. Upload your resume and Disha will call you for a 10-minute coaching conversation about it.</p>
-      <p id="plan" class="plan" hidden></p>
-    </header>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="wrap hero-grid">
+        <div class="hero-copy reveal">
+          <span class="eyebrow"><span class="dot"></span> AI career coach · on a phone call</span>
+          <h1>Career clarity in a <span class="grad-text">10-minute call</span>.</h1>
+          <p class="lead">Meet <strong>Ava</strong>, your personal AI career coach. Share your resume or a few details, and Ava calls you to dig into your experience, agree on one clear goal, and build a 30-day plan you can act on tomorrow.</p>
+          <div class="hero-cta">
+            <a class="btn btn-primary btn-lg" href="#start">Get my free call <span aria-hidden="true">→</span></a>
+            <a class="btn btn-ghost btn-lg" href="#how">See how it works</a>
+          </div>
+          <ul class="chips" aria-label="Highlights">
+            <li>3 free calls</li>
+            <li>No app needed</li>
+            <li>Remembers your journey</li>
+            <li>Private &amp; secure</li>
+          </ul>
+        </div>
 
-    <section id="setup" class="card">
-      <form id="setup-form" novalidate>
-        <label>Mobile number
-          <input id="phone" name="phone" type="tel" required inputmode="tel" autocomplete="tel" placeholder="98765 43210">
-          <span id="verified" class="hint" hidden></span>
-          <span class="hint">Indian mobile numbers only. We'll send a one-time code the first time. Disha calls from +91 80654 81243.</span>
-        </label>
-        <p class="returning">Spoken with Disha before? Just enter your number and click <b>Call me now</b>. Disha remembers your resume and your previous calls. Fill in the rest only to change them.</p>
-        <label>Your name
-          <input id="name" name="name" maxlength="80" autocomplete="name">
-        </label>
-        <label>Email for your call summary
-          <input id="email" name="email" type="email" maxlength="120" autocomplete="email">
-        </label>
-        <label>Resume (PDF, DOCX or TXT, up to 5 MB)
-          <input id="resume" name="resume" type="file" accept=".pdf,.docx,.txt">
-          <span class="hint">Required for your first call. Upload again only to replace it.</span>
-        </label>
-        <label id="whatsapp-option" class="consent" hidden>
-          <input id="whatsapp" name="whatsapp" type="checkbox" value="yes">
-          <span>Also send my summary on WhatsApp to this number.</span>
-        </label>
-        <label class="consent">
-          <input id="consent" name="consent" type="checkbox" value="yes" required>
-          <span>I want Disha to call this number now. I've read the <a href="/privacy" target="_blank">privacy policy</a> and <a href="/terms" target="_blank">terms</a>. I understand Disha is an AI, my resume and calls are processed by Google Gemini, and my resume and call transcripts are kept for up to 12 months after my last call so Disha can remember them.</span>
-        </label>
-        <button id="start" type="submit">Call me now</button>
-        <p id="setup-status" class="status" role="status"></p>
-      </form>
-
-      <div id="otp" class="otp" hidden>
-        <label>Enter the 6-digit code sent to <b id="otp-number"></b>
-          <input id="otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}">
-        </label>
-        <button id="otp-verify" type="button">Verify and call me</button>
-        <button id="otp-cancel" type="button" class="link">Change number</button>
-        <p id="otp-status" class="status" role="status"></p>
+        <div class="hero-visual reveal" aria-hidden="true">
+          <div class="phone">
+            <div class="phone-top"><span class="phone-notch"></span></div>
+            <div class="caller">
+              <div class="avatar"><span>A</span><i class="ring r1"></i><i class="ring r2"></i></div>
+              <div class="caller-name">Ava</div>
+              <div class="caller-sub">AI Career Coach · calling…</div>
+              <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="bubbles">
+              <div class="bubble coach">Your resume shows the GenAI rollout you led. What did it save the business?</div>
+              <div class="bubble user">About 40% of manual effort, I think.</div>
+              <div class="bubble coach">Let's turn that into a number for your Head of AI story.</div>
+            </div>
+            <div class="example-tag">Example conversation</div>
+          </div>
+          <div class="float-card fc-1"><b>🎯 Goal</b><span>Head of AI in 18 months</span></div>
+          <div class="float-card fc-2"><b>🗓 30-day plan</b><span>3 actions with deadlines</span></div>
+        </div>
       </div>
-
-      <div id="pay" class="otp" hidden>
-        <p id="pay-text"></p>
-        <button id="pay-button" type="button">Pay with UPI, card or netbanking</button>
-        <p id="pay-status" class="status" role="status"></p>
-      </div>
-      <div id="recaptcha"></div>
     </section>
 
-    <section id="calling" class="card" hidden>
-      <div class="talk-head">
-        <div id="orb" class="orb" aria-hidden="true"></div>
-        <p id="call-status" class="status" role="status" aria-live="polite"></p>
+    <!-- How it works -->
+    <section id="how" class="section">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <span class="kicker">How it works</span>
+          <h2>From profile to plan in three steps</h2>
+        </div>
+        <ol class="steps">
+          <li class="step reveal"><span class="step-no">1</span><h3>Share your background</h3><p>Upload your resume, or skip it and tell us your current role and the role you want. It takes a minute.</p></li>
+          <li class="step reveal"><span class="step-no">2</span><h3>Verify your number</h3><p>A one-time code confirms it's your phone. We remember it, so you're not asked again on this device.</p></li>
+          <li class="step reveal"><span class="step-no">3</span><h3>Ava calls you</h3><p>A focused ~10-minute conversation in English. Your summary, plan and resources arrive by email right after.</p></li>
+        </ol>
       </div>
-      <button id="again" type="button" class="secondary" hidden>Back</button>
+    </section>
+
+    <!-- What you get -->
+    <section id="benefits" class="section section-tint">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <span class="kicker">What you get</span>
+          <h2>Coaching that's about <em>you</em>, not generic advice</h2>
+        </div>
+        <div class="cards">
+          <article class="card feature reveal"><div class="icon">📄</div><h3>Questions from your resume</h3><p>Ava refers to your real roles, projects and numbers, and asks what a hiring manager would ask.</p></article>
+          <article class="card feature reveal"><div class="icon">🎯</div><h3>One clear goal</h3><p>A specific target role with a timeline, and an honest view of the gaps between you and it.</p></article>
+          <article class="card feature reveal"><div class="icon">🗓</div><h3>A 30-day action plan</h3><p>Two or three concrete actions, each with an output and a deadline, plus resume fixes where they help.</p></article>
+          <article class="card feature reveal"><div class="icon">🔗</div><h3>Hand-picked resources</h3><p>Talks, courses (only if a gap needs one) and senior people to connect with, found on the web and checked. Never promotions.</p></article>
+          <article class="card feature reveal"><div class="icon">🧠</div><h3>Remembers your journey</h3><p>Next time, just enter your number. Ava picks up where you left off and checks how your plan went.</p></article>
+          <article class="card feature reveal"><div class="icon">🔒</div><h3>Private by design</h3><p>Your number is verified, your data stays in India-based storage, and you can download or delete it anytime.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Start -->
+    <section id="start" class="section start">
+      <div class="wrap start-grid">
+        <div class="start-copy reveal">
+          <span class="kicker">Talk to Ava</span>
+          <h2>Get your call now</h2>
+          <p>Fill in your details and Ava will call you within seconds. Already spoken with Ava? Just enter your number: your background and previous calls are remembered.</p>
+          <p id="plan" class="plan-pill" hidden></p>
+          <ul class="checklist">
+            <li>Calls come from <strong>+91 80654 81243</strong></li>
+            <li>About 10 minutes, in English</li>
+            <li>Summary and resources by email</li>
+          </ul>
+        </div>
+
+        <div id="setup" class="form-card reveal">
+          <form id="setup-form" novalidate>
+            <div class="field">
+              <label for="phone">Mobile number</label>
+              <div class="phone-input"><span class="prefix">+91</span><input id="phone" name="phone" type="tel" required inputmode="tel" autocomplete="tel" placeholder="98765 43210"></div>
+              <span id="verified" class="verified" hidden></span>
+            </div>
+
+            <div class="field-row">
+              <div class="field"><label for="name">Your name</label><input id="name" name="name" maxlength="80" autocomplete="name" placeholder="Priya Sharma"></div>
+              <div class="field"><label for="email">Email for your summary</label><input id="email" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com"></div>
+            </div>
+
+            <div class="field">
+              <span class="label">Your background</span>
+              <div class="segmented" role="tablist" aria-label="Background">
+                <button type="button" role="tab" id="tab-resume" aria-selected="true" aria-controls="panel-resume" class="seg active">📄 Upload resume</button>
+                <button type="button" role="tab" id="tab-details" aria-selected="false" aria-controls="panel-details" class="seg">✍️ Tell us about you</button>
+              </div>
+
+              <div id="panel-resume" role="tabpanel" aria-labelledby="tab-resume" class="tab-panel">
+                <label class="dropzone" id="dropzone" for="resume">
+                  <input id="resume" name="resume" type="file" accept=".pdf,.docx,.txt">
+                  <span class="dz-icon" aria-hidden="true">⬆</span>
+                  <span class="dz-title" id="dz-title">Drop your resume here or <u>browse</u></span>
+                  <span class="dz-sub">PDF, DOCX or TXT · up to 5 MB · optional if you've called before</span>
+                </label>
+              </div>
+
+              <div id="panel-details" role="tabpanel" aria-labelledby="tab-details" class="tab-panel" hidden>
+                <div class="field-row">
+                  <div class="field"><label for="current_role">Current role &amp; company</label><input id="current_role" name="current_role" maxlength="160" placeholder="Senior Data Engineer, Infosys"></div>
+                  <div class="field"><label for="experience">Experience</label><input id="experience" name="experience" maxlength="40" placeholder="7 years"></div>
+                </div>
+                <div class="field-row">
+                  <div class="field"><label for="target_role">Role you're aiming for</label><input id="target_role" name="target_role" maxlength="160" placeholder="Engineering Manager"></div>
+                  <div class="field"><label for="education">Education</label><input id="education" name="education" maxlength="200" placeholder="B.Tech, VIT Vellore"></div>
+                </div>
+                <div class="field"><label for="skills">Key skills</label><input id="skills" name="skills" maxlength="300" placeholder="Python, Spark, stakeholder management"></div>
+                <div class="field"><label for="about">Anything else Ava should know <span class="opt">(optional)</span></label><textarea id="about" name="about" maxlength="1500" rows="3" placeholder="What's on your mind about your career right now?"></textarea></div>
+              </div>
+            </div>
+
+            <label id="whatsapp-option" class="check" hidden>
+              <input id="whatsapp" name="whatsapp" type="checkbox" value="yes">
+              <span>Also send my summary on WhatsApp to this number.</span>
+            </label>
+            <label class="check">
+              <input id="consent" name="consent" type="checkbox" value="yes" required>
+              <span>I want Ava to call this number now. I've read the <a href="/privacy" target="_blank">privacy policy</a> and <a href="/terms" target="_blank">terms</a>. I understand Ava is an AI, my details and calls are processed by Google Gemini, and my background and call transcripts are kept for up to 12 months after my last call so Ava can remember them.</span>
+            </label>
+
+            <button id="start-btn" type="submit" class="btn btn-primary btn-block btn-lg">
+              <span class="btn-label">📞 Call me now</span><span class="spinner" aria-hidden="true"></span>
+            </button>
+            <p id="setup-status" class="status" role="status"></p>
+          </form>
+
+          <div id="otp" class="panel" hidden>
+            <div class="panel-icon" aria-hidden="true">🔐</div>
+            <h3>Verify your number</h3>
+            <p>Enter the 6-digit code sent to <b id="otp-number"></b>.</p>
+            <input id="otp-code" class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}" aria-label="6-digit code" placeholder="••••••">
+            <button id="otp-verify" type="button" class="btn btn-primary btn-block">Verify and call me</button>
+            <button id="otp-cancel" type="button" class="btn btn-link">Change number</button>
+            <p id="otp-status" class="status" role="status"></p>
+          </div>
+
+          <div id="pay" class="panel" hidden>
+            <div class="panel-icon" aria-hidden="true">💳</div>
+            <h3>Get a day pass</h3>
+            <p id="pay-text"></p>
+            <button id="pay-button" type="button" class="btn btn-primary btn-block">Pay with UPI, card or netbanking</button>
+            <p class="fine">Secure payment by Razorpay. Your call starts as soon as the payment is confirmed.</p>
+            <p id="pay-status" class="status" role="status"></p>
+          </div>
+          <div id="recaptcha"></div>
+        </div>
+
+        <div id="calling" class="form-card call-card" hidden>
+          <div class="call-visual">
+            <div id="orb" class="orb"><span>A</span></div>
+          </div>
+          <p id="call-status" class="call-status" role="status" aria-live="polite"></p>
+          <ol class="timeline" id="timeline">
+            <li data-step="calling">Calling your phone</li>
+            <li data-step="in_call">On the call with Ava</li>
+            <li data-step="completed">Summary on its way</li>
+          </ol>
+          <button id="again" type="button" class="btn btn-ghost btn-block" hidden>Back</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing -->
+    <section id="pricing" class="section section-tint">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <span class="kicker">Pricing</span>
+          <h2>Start free. Pay only when you need more.</h2>
+        </div>
+        <div class="pricing">
+          <article class="price-card reveal">
+            <h3>Free</h3>
+            <div class="price"><span class="amount">₹0</span></div>
+            <p class="price-sub">Your first 3 coaching calls</p>
+            <ul class="checklist"><li>~10-minute calls with Ava</li><li>Goal, 30-day plan &amp; resources by email</li><li>Ava remembers every call</li></ul>
+            <a href="#start" class="btn btn-ghost btn-block">Get a free call</a>
+          </article>
+          <article class="price-card featured reveal">
+            <span class="badge">Most flexible</span>
+            <h3>Day pass</h3>
+            <div class="price"><span class="amount">₹499</span><span class="per">/ 24 hours</span></div>
+            <p class="price-sub">Up to 3 calls within 24 hours</p>
+            <ul class="checklist"><li>Everything in Free</li><li>Prep for an interview or offer call</li><li>Pay with UPI, cards or netbanking</li></ul>
+            <a href="#start" class="btn btn-primary btn-block">Talk to Ava</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="section">
+      <div class="wrap narrow">
+        <div class="section-head reveal">
+          <span class="kicker">FAQ</span>
+          <h2>Questions, answered</h2>
+        </div>
+        <div class="faq">
+          <details class="reveal"><summary>Is Ava a real person?</summary><p>No. Ava is an AI career coach. She gives practical, specific guidance based on what you share, but it's not legal, financial or mental-health advice, and she can't promise jobs or salaries.</p></details>
+          <details class="reveal"><summary>Do I have to upload my resume?</summary><p>No. You can choose "Tell us about you" and type your current role, experience and the role you want. A resume lets Ava ask sharper questions, but it's optional.</p></details>
+          <details class="reveal"><summary>What happens after the call?</summary><p>Within a few minutes you get an email with your goal, gaps to close, a 30-day plan, resume tips and hand-picked resources: videos, courses only where they help, and senior people to connect with.</p></details>
+          <details class="reveal"><summary>Will Ava remember me next time?</summary><p>Yes. Enter the same number and Ava continues from your last call. You can download or delete everything on the <a href="/my-data">My data</a> page.</p></details>
+          <details class="reveal"><summary>Which language does Ava speak?</summary><p>English. You can speak in Hindi or Hinglish and Ava will understand, but she replies in English.</p></details>
+          <details class="reveal"><summary>How is my data protected?</summary><p>Your number is verified by a one-time code, data is stored in Google Cloud in Mumbai, and nothing is sold or used for ads. Read the <a href="/privacy">privacy policy</a>.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="wrap cta-inner reveal">
+        <h2>Your next career move deserves a plan.</h2>
+        <a class="btn btn-light btn-lg" href="#start">Get my free call →</a>
+      </div>
     </section>
   </main>
-  <footer>
-    <a href="/privacy">Privacy policy</a> · <a href="/terms">Terms</a> · <a href="/my-data">My data</a>
+
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div>
+        <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text">Tell Your Journey</span></a>
+        <p class="footer-note">Ava is an AI career coach that calls you, listens, and helps you plan your next move.</p>
+      </div>
+      <div><h4>Product</h4><a href="#how">How it works</a><a href="#benefits">What you get</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></div>
+      <div><h4>Your data</h4><a href="/privacy">Privacy policy</a><a href="/terms">Terms of use</a><a href="/my-data">Download or delete my data</a></div>
+      <div><h4>Contact</h4><a href="mailto:ranjanalok2032@gmail.com">ranjanalok2032@gmail.com</a><span class="muted">Grievance officer: Alok Ranjan</span></div>
+    </div>
+    <div class="wrap footer-bottom">
+      <span>© 2026 Tell Your Journey</span>
+      <span>Ava is an AI. Guidance only, not professional advice.</span>
+    </div>
   </footer>
   <script type="module" src="/static/app.js"></script>
 </body>

@@ -28,7 +28,7 @@ def alert(key: str, subject: str, body: str, every_secs: int = 6 * 3600) -> bool
         if time.time() - last.get("sent_at", 0) < every_secs:
             return False
         store.put_json(f"alerts/{key}.json", {"sent_at": time.time(), "subject": subject})
-        return integrations.send_email(config.ADMIN_EMAIL, f"[Disha alert] {subject}", body)
+        return integrations.send_email(config.ADMIN_EMAIL, f"[Ava alert] {subject}", body)
     except Exception as e:
         log("alert_failed", f"could not send alert {key}: {e!r}", severity="ERROR")
         return False

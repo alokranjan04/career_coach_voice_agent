@@ -309,13 +309,13 @@ def _summary_email(call: Call, resources_text: str) -> str:
                 ("Biggest gaps to close", "skill_gaps"), ("What's holding you back", "obstacles"),
                 ("Resume suggestions", "resume_feedback"), ("Your 30-day plan", "next_steps")]
     body = [f"Hi {call.name},", "",
-            "Thanks for your call with Disha, your AI career coach. Here's your summary.", ""]
+            "Thanks for your call with Ava, your AI career coach. Here's your summary.", ""]
     for title, key in sections:
         if str(sm.get(key, "")).strip():
             body += [title.upper(), str(sm[key]).strip(), ""]
     if resources_text:
         body += [resources_text]
-    body += ["All the best!", "Disha", "",
+    body += ["All the best!", "Ava", "",
              "This summary was written by an AI coach. Treat it as guidance, not professional advice.",
              f"Your data and rights: {config.SITE_URL}/my-data · Privacy policy: {config.SITE_URL}/privacy"]
     return "\n".join(body)

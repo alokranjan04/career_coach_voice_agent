@@ -48,7 +48,7 @@ PERSONAS = {
 }
 
 CALLER_PROMPT = """{persona}
-You are on a phone call with Disha, an AI career coach. Here is the conversation so far:
+You are on a phone call with Ava, an AI career coach. Here is the conversation so far:
 {transcript}
 Reply with ONLY your next spoken line as the caller (no labels, no quotes). If the coach has said goodbye, reply END."""
 

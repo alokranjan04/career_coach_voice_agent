@@ -3,11 +3,11 @@
 Business-initiated WhatsApp messages need a template approved by Meta.
 
 1. Twilio Console → Messaging → Content Template Builder → Create new.
-2. Name `disha_call_summary`, language English, type Text, category **Utility**.
+2. Name `career_call_summary`, language English, type Text, category **Utility**.
 3. Body:
 
 ```
-Hi {{1}}, here's a summary of your coaching call with Disha.
+Hi {{1}}, here's a summary of your coaching call with Ava.
 
 Your goal: {{2}}
 

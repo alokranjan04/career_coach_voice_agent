@@ -1,4 +1,4 @@
-name: Test and deploy Disha career coach
+name: Test and deploy Ava career coach
 
 on:
   push:

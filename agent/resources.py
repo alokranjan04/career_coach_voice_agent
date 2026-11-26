@@ -239,7 +239,7 @@ def email_section(res: dict) -> str:
     """Plain-text block for the summary email."""
     lines = ["RESOURCES PICKED FOR YOU",
              "These links are only to guide you. They are not promotions, sponsored or affiliate links,",
-             "and Disha has no connection with any provider or person listed.", ""]
+             "and Ava has no connection with any provider or person listed.", ""]
     if res.get("videos"):
         lines.append("Watch")
         for v in res["videos"]:

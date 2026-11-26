@@ -1,10 +1,10 @@
-# Disha — AI career coach (phone)
+# Ava — AI career coach (phone)
 
-Users verify their mobile number once with an SMS OTP, upload a resume, and Disha
-calls them through Vobiz. During the roughly 10-minute call, Disha asks questions
+Users verify their mobile number once with an SMS OTP, upload a resume, and Ava
+calls them through Vobiz. During the roughly 10-minute call, Ava asks questions
 grounded in the resume, agrees a goal and a 30-day plan, then emails a summary with
 verified internet resources. Each number has a profile,
-so returning users only enter their number and Disha continues from the last call.
+so returning users only enter their number and Ava continues from the last call.
 
 Built from the `telephony-voice-agent` skill template (the Mydoot pattern), with
 outbound calling, memory, payments, compliance and observability added.
@@ -67,7 +67,7 @@ Settings are kept between deploys and changed with `gcloud run services update`:
 - **Logs:** every line is a JSON event (`agent/obs.py`): `call_placed`, `call_started`,
   `call_ended` (duration, cost breakdown, tokens, quality), `payment_captured`,
   `otp_verified`, `alert`, errors. Filter by `labels.call_id` to follow one call.
-- **Dashboard:** Cloud Monitoring → "Disha career coach": calls, cost per call, duration,
+- **Dashboard:** Cloud Monitoring → "Ava career coach": calls, cost per call, duration,
   quality, payments, errors, alerts.
 - **Alerts** (email to the admin): errors, app alerts, a spike in calls, site down.
 - **Cost per call** is logged and written to the Call_Logs tab: Vobiz's billed cost,
@@ -98,7 +98,7 @@ and the regression test gates prompt changes.
 
 Built but switched off: it turns on only when `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
 `TWILIO_WHATSAPP_FROM` and an approved `TWILIO_CONTENT_SID` are all set. Until then the
-page doesn't offer it and Disha doesn't mention it. Setup: `docs/whatsapp-template.md`.
+page doesn't offer it and Ava doesn't mention it. Setup: `docs/whatsapp-template.md`.
 
 ## Custom domain
 

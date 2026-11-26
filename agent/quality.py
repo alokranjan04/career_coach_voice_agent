@@ -80,7 +80,7 @@ def weekly_review() -> dict:
     cutoff = time.time() - 7 * 86400
     recent = [r for r in rows if _ts(r.get("Timestamp", "")) >= cutoff]
     if not recent:
-        integrations.send_email(config.ADMIN_EMAIL, "[Disha] Weekly quality review: no calls this week",
+        integrations.send_email(config.ADMIN_EMAIL, "[Ava] Weekly quality review: no calls this week",
                                 "No scored calls in the last 7 days.")
         return {"sent": True, "calls": 0}
     by_overall = sorted(recent, key=lambda r: float(r.get("overall") or 0))
@@ -98,7 +98,7 @@ def weekly_review() -> dict:
                   f"  Issues: {r.get('issues', '')[:500]}"]
     lines += ["", "Review the full transcripts in the Call_Logs tab of the Sheet, then fix the prompt,",
               "run the regression test (tests/regression), and deploy."]
-    integrations.send_email(config.ADMIN_EMAIL, f"[Disha] Weekly quality review: {len(recent)} calls",
+    integrations.send_email(config.ADMIN_EMAIL, f"[Ava] Weekly quality review: {len(recent)} calls",
                             "\n".join(lines))
     obs.log("weekly_review_sent", f"{len(recent)} calls reviewed", calls=len(recent))
     return {"sent": True, "calls": len(recent)}

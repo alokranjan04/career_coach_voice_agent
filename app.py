@@ -57,6 +57,32 @@ def _indian_mobile(raw: str) -> str:
     return "91" + digits if re.fullmatch(r"[6-9]\d{9}", digits) else ""
 
 
+# Optional profile fields for users who'd rather not upload a resume: (label, max length).
+DETAIL_FIELDS = {
+    "current_role": ("Current role and company", 160),
+    "experience": ("Years of experience", 40),
+    "education": ("Education", 200),
+    "skills": ("Key skills", 300),
+    "target_role": ("Role they're aiming for", 160),
+    "about": ("In their own words", 1500),
+}
+
+
+def _clean_text(value, limit: int) -> str:
+    return re.sub(r"[\x00-\x08\x0b-\x1f<>{}]", "", str(value or "")).strip()[:limit]
+
+
+def _background(doc: str, details: dict) -> str:
+    """What the coach knows about the user: resume text and/or the typed profile."""
+    parts = []
+    if doc:
+        parts.append("RESUME:\n" + doc)
+    if details:
+        parts.append("PROFILE FROM WEBSITE FORM:\n" + "\n".join(
+            f"{DETAIL_FIELDS[k][0]}: {v}" for k, v in details.items() if k in DETAIL_FIELDS))
+    return "\n\n".join(parts)[:config.MAX_RESUME_CHARS]
+
+
 def _client_ip(request: web.Request) -> str:
     return (request.headers.get("X-Forwarded-For", "").split(",")[0].strip()) or (request.remote or "")
 
@@ -91,6 +117,7 @@ async def session(request: web.Request) -> web.Response:
     p = store.active_pass(profile)
     return web.json_response({
         "phone": "+" + phone, "has_profile": bool(profile.get("resume")),
+        "first_name": profile.get("name", "").split(" ")[0],
         "free_calls_left": max(0, config.FREE_CALLS - await asyncio.to_thread(store.free_calls_used, phone)),
         "pass_calls_left": (config.DAY_PASS_CALLS - p.get("calls_used", 0)) if p else 0,
         "pass_expires_at": p.get("expires_at") if p else None})
@@ -142,15 +169,24 @@ async def request_call(request: web.Request) -> web.Response:
     profile = await asyncio.to_thread(store.load_profile, phone)
     name = re.sub(r"[\x00-\x1f<>{}]", "", str(form.get("name", ""))).strip()[:80] or profile.get("name", "")
     email = str(form.get("email", "")).strip()[:120] or profile.get("email", "")
+    # Background = an uploaded resume, a short profile typed on the form, or both.
+    # Older profiles only have "resume"; treat that as the resume document.
+    doc = profile.get("resume_doc", profile.get("resume", "") if "details" not in profile else "")
+    details = profile.get("details", {})
     upload = form.get("resume")
-    resume = profile.get("resume", "")
     if isinstance(upload, web.FileField) and upload.filename:
         try:
-            resume = extract_text(upload.filename, upload.file.read())
+            doc = extract_text(upload.filename, upload.file.read())
         except ResumeError as e:
             return _error(str(e), 422)
-    if not resume:
-        return _error("We don't have a resume for this number yet. Please upload it.")
+    typed = {key: _clean_text(form.get(key), limit) for key, (_, limit) in DETAIL_FIELDS.items()}
+    typed = {k: v for k, v in typed.items() if v}
+    if typed:
+        details = typed
+    resume = _background(doc, details)
+    if len(resume.strip()) < 40:
+        return _error("Please upload your resume, or tell us a little about yourself: "
+                      "your current role and the role you're aiming for.")
     if not name:
         return _error("Please enter your name.")
     if not EMAIL_RE.match(email):
@@ -160,7 +196,7 @@ async def request_call(request: web.Request) -> web.Response:
     spent = await asyncio.to_thread(store.spend_today)
     if spent >= config.DAILY_SPEND_CAP_INR:
         obs.log("spend_cap_refused", "call refused: daily spend cap reached", severity="WARNING", spent_inr=spent)
-        return _error("Disha is fully booked for today. Please try again tomorrow.", 503)
+        return _error("Ava is fully booked for today. Please try again tomorrow.", 503)
     kind = await asyncio.to_thread(store.entitlement, phone, profile)
     if kind == "payment_required":
         return _error(f"You've used your {config.FREE_CALLS} free calls. A day pass is "
@@ -177,7 +213,8 @@ async def request_call(request: web.Request) -> web.Response:
                             request.headers.get("User-Agent", ""))
     if resume != profile.get("resume"):
         profile["resume_updated"] = time.time()
-    profile.update(phone=phone, name=name, email=email, resume=resume, whatsapp_opt_in=whatsapp)
+    profile.update(phone=phone, name=name, email=email, resume=resume, resume_doc=doc, details=details,
+                   whatsapp_opt_in=whatsapp)
     await asyncio.to_thread(store.save_profile, profile)
     rec = await asyncio.to_thread(store.create, profile, kind)
     base = _base_url(request)

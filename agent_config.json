@@ -1,5 +1,5 @@
 {
-  "name": "Disha Career Coach",
+  "name": "Ava · Tell Your Journey",
   "model": "models/gemini-3.8-live",
   "voice": "Aoede",
   "utc_offset_minutes": 330,

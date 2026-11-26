@@ -1,5 +1,5 @@
 // Web client: verify the number once (OTP), pay if the free calls are used up,
-// send the form and resume to /api/call, then poll the call's status.
+// send the form (resume and/or profile) to /api/call, then follow the call live.
 import { friendlyOtpError, getConfig, getSession, sendCode, toE164 } from "/static/otp.js";
 
 const $ = (id) => document.getElementById(id);
@@ -7,14 +7,15 @@ const POLL_MS = 3000;
 const POLL_LIMIT_MS = 20 * 60 * 1000;
 
 const MESSAGES = {
-  calling: ["ringing", "Calling you now. Please pick up when your phone rings."],
-  answered: ["speaking", "Connecting you to Disha…"],
-  in_call: ["speaking", "You're on the call with Disha."],
-  completed: ["", "Call complete. Your summary is on its way to your inbox."],
+  calling: ["ringing", "Calling you now… please pick up when your phone rings."],
+  answered: ["speaking", "Connecting you to Ava…"],
+  in_call: ["speaking", "You're on the call with Ava."],
+  completed: ["done", "Great call! Your summary, plan and resources are on their way to your inbox."],
   ended: ["", "The call has ended. If it ended early, you can request another call in a few minutes."],
   no_answer: ["", "We couldn't reach you. Check your phone is on and try again in a few minutes."],
   failed: ["", "We couldn't place the call. Please try again."],
 };
+const TIMELINE = { calling: 0, answered: 1, in_call: 1, completed: 3, ended: 2, no_answer: 0, failed: 0 };
 
 let cfg = null;
 let session = { phone: "" };
@@ -22,6 +23,11 @@ let session = { phone: "" };
 function setStatus(el, text, isError = false) {
   el.textContent = text;
   el.classList.toggle("error", isError);
+}
+
+function busy(button, on) {
+  button.disabled = on;
+  button.classList.toggle("loading", on);
 }
 
 function showPanel(name) {
@@ -32,27 +38,59 @@ function showPanel(name) {
 
 function renderSession() {
   const v = $("verified");
-  if (session.phone) {
-    v.hidden = false;
-    v.textContent = `✓ ${session.phone} is verified on this device.`;
-    if (!$("phone").value) $("phone").value = session.phone.slice(3);
-    const plan = $("plan");
-    plan.hidden = false;
-    plan.textContent = session.pass_calls_left > 0
-      ? `Day pass active: ${session.pass_calls_left} call(s) left.`
-      : session.free_calls_left > 0
-        ? `${session.free_calls_left} free call(s) left.`
-        : `Free calls used. A day pass is ₹${cfg.day_pass_rupees} for up to ${cfg.day_pass_calls} calls in ${cfg.day_pass_hours} hours.`;
-  } else {
-    v.hidden = true;
+  const plan = $("plan");
+  if (!session.phone) { v.hidden = true; plan.hidden = true; return; }
+  v.hidden = false;
+  v.textContent = `✓ ${session.phone} is verified on this device${session.first_name ? ` · welcome back, ${session.first_name}` : ""}`;
+  if (!$("phone").value) $("phone").value = session.phone.slice(3);
+  plan.hidden = false;
+  plan.textContent = session.pass_calls_left > 0
+    ? `Day pass active · ${session.pass_calls_left} call(s) left`
+    : session.free_calls_left > 0
+      ? `${session.free_calls_left} free call${session.free_calls_left === 1 ? "" : "s"} left`
+      : `Free calls used · day pass ₹${cfg.day_pass_rupees} for ${cfg.day_pass_calls} calls`;
+}
+
+// ---------- background tabs and resume drop zone ----------
+function selectTab(which) {
+  for (const t of ["resume", "details"]) {
+    const on = t === which;
+    $(`tab-${t}`).classList.toggle("active", on);
+    $(`tab-${t}`).setAttribute("aria-selected", String(on));
+    $(`panel-${t}`).hidden = !on;
   }
 }
+$("tab-resume").addEventListener("click", () => selectTab("resume"));
+$("tab-details").addEventListener("click", () => selectTab("details"));
+
+const dz = $("dropzone");
+function showFile() {
+  const file = $("resume").files[0];
+  dz.classList.toggle("has-file", Boolean(file));
+  $("dz-title").textContent = file ? `✓ ${file.name}` : "Drop your resume here or browse";
+}
+$("resume").addEventListener("change", showFile);
+["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("drag"); }));
+["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("drag"); }));
+dz.addEventListener("drop", (e) => {
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  $("resume").files = dt.files;
+  showFile();
+});
 
 // ---------- call status ----------
 function show(status) {
   const [orb, text] = MESSAGES[status] || MESSAGES.calling;
   $("orb").className = "orb " + orb;
   setStatus($("call-status"), text, status === "failed" || status === "no_answer");
+  const reached = TIMELINE[status] ?? 0;
+  [...$("timeline").children].forEach((li, i) => {
+    li.classList.toggle("done", i < reached);
+    li.classList.toggle("active", i === reached && reached < 3 && !["ended", "no_answer", "failed"].includes(status));
+  });
   const done = !["calling", "answered", "in_call"].includes(status);
   $("again").hidden = !done;
   return done;
@@ -72,7 +110,7 @@ async function poll(sid) {
 
 // ---------- steps ----------
 async function requestCall() {
-  setStatus($("setup-status"), "Reading your resume and placing the call…");
+  setStatus($("setup-status"), "Preparing your call…");
   const res = await fetch("/api/call", { method: "POST", body: new FormData($("setup-form")), credentials: "same-origin" });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && data.needs_verification) return startOtp();
@@ -82,6 +120,7 @@ async function requestCall() {
   showPanel("none");
   $("setup").hidden = true;
   $("calling").hidden = false;
+  $("calling").scrollIntoView({ behavior: "smooth", block: "center" });
   show("calling");
   poll(data.sid);
 }
@@ -114,8 +153,8 @@ async function pay() {
   await new Promise((resolve, reject) => {
     const rzp = new window.Razorpay({
       key: order.key_id, order_id: order.order_id, amount: order.amount, currency: order.currency,
-      name: "Disha Career Coach", description: `Day pass: up to ${cfg.day_pass_calls} coaching calls`,
-      prefill: order.prefill, theme: { color: "#2f6f5e" },
+      name: "Tell Your Journey", description: `Day pass: up to ${cfg.day_pass_calls} coaching calls with Ava`,
+      prefill: order.prefill, theme: { color: "#4f46e5" },
       handler: async (resp) => {
         const res = await fetch("/api/pay/verify", {
           method: "POST", credentials: "same-origin",
@@ -134,9 +173,9 @@ async function pay() {
 // ---------- events ----------
 $("setup-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const button = $("start");
+  const button = $("start-btn");
   if (!$("consent").checked) return setStatus($("setup-status"), "Please tick the consent box.", true);
-  button.disabled = true;
+  busy(button, true);
   try {
     const e164 = toE164($("phone").value);
     if (!e164) throw new Error("Please enter a valid 10-digit Indian mobile number.");
@@ -146,14 +185,19 @@ $("setup-form").addEventListener("submit", async (e) => {
     showPanel("form");
     setStatus($("setup-status"), friendlyOtpError(err), true);
   } finally {
-    button.disabled = false;
+    busy(button, false);
   }
+});
+
+$("otp-code").addEventListener("input", (e) => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+  if (e.target.value.length === 6) $("otp-verify").click();
 });
 
 $("otp-verify").addEventListener("click", async () => {
   const code = $("otp-code").value.trim();
   if (!/^\d{6}$/.test(code)) return setStatus($("otp-status"), "Please enter the 6-digit code.", true);
-  $("otp-verify").disabled = true;
+  busy($("otp-verify"), true);
   setStatus($("otp-status"), "Verifying…");
   try {
     await confirmCode(code);
@@ -164,14 +208,14 @@ $("otp-verify").addEventListener("click", async () => {
   } catch (err) {
     setStatus($("otp-status"), friendlyOtpError(err), true);
   } finally {
-    $("otp-verify").disabled = false;
+    busy($("otp-verify"), false);
   }
 });
 
 $("otp-cancel").addEventListener("click", () => showPanel("form"));
 
 $("pay-button").addEventListener("click", async () => {
-  $("pay-button").disabled = true;
+  busy($("pay-button"), true);
   try {
     await pay();
     setStatus($("pay-status"), "Payment received. Placing your call…");
@@ -182,7 +226,7 @@ $("pay-button").addEventListener("click", async () => {
   } catch (err) {
     setStatus($("pay-status"), err.message, true);
   } finally {
-    $("pay-button").disabled = false;
+    busy($("pay-button"), false);
   }
 });
 
@@ -192,6 +236,15 @@ $("again").addEventListener("click", async () => {
   showPanel("form");
   session = await getSession();
   renderSession();
+});
+
+// ---------- scroll reveal ----------
+const io = "IntersectionObserver" in window ? new IntersectionObserver((entries) => {
+  for (const e of entries) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+}, { threshold: 0.12 }) : null;
+document.querySelectorAll(".reveal").forEach((el, i) => {
+  el.style.transitionDelay = `${(i % 4) * 70}ms`;
+  io ? io.observe(el) : el.classList.add("in");
 });
 
 (async () => {

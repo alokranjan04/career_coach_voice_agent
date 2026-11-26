@@ -128,3 +128,36 @@ def test_returning_caller_needs_only_number(world, monkeypatch):
     second = fake.prompts[1]
     assert "Statusneo" in second                       # resume remembered
     assert "CALL 1" in second and "Head of AI" in second  # previous call remembered
+
+
+def test_profile_details_instead_of_resume(world, monkeypatch):
+    import aiohttp
+    fake = FakeGemini()
+
+    def details_form(**fields):
+        f = aiohttp.FormData()
+        for k, v in {"phone": "9123456789", "name": "Neha", "email": "neha@example.com", "consent": "yes", **fields}.items():
+            f.add_field(k, v)
+        f.add_field("resume", b"", filename="")  # no file chosen
+        return f
+
+    async def go():
+        async with fake as url:
+            monkeypatch.setattr(config, "GEMINI_WS_URL", url)
+            c = await _client(verified_cookie("919123456789"))
+            try:
+                empty = await c.post("/api/call", data=details_form())
+                r = await c.post("/api/call", data=details_form(
+                    current_role="Senior Data Engineer, Infosys", experience="7 years",
+                    target_role="Engineering Manager", skills="Spark, Python, mentoring"))
+                assert r.status == 200, await r.text()
+                await run_phone_leg(c, world.placed[-1][1], seconds=2)
+                return empty.status, (await empty.json())["error"]
+            finally:
+                await c.close()
+    status, error = run(go())
+    assert status == 400 and "resume" in error
+    prompt = fake.prompts[0]
+    assert "PROFILE FROM WEBSITE FORM" in prompt and "Engineering Manager" in prompt and "RESUME:" not in prompt
+    profile = store.load_profile("919123456789")
+    assert profile["details"]["target_role"] == "Engineering Manager" and profile["resume_doc"] == ""

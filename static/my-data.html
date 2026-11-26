@@ -3,39 +3,59 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>My data · Disha AI Career Coach</title>
+  <title>My data · Tell Your Journey</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <main>
-    <p><a href="/">← Back to Disha</a></p>
-    <h1>My data</h1>
-    <p class="tagline">Download or delete everything Disha stores about your number: your profile, resume, call transcripts and summaries, and consent records.</p>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="/" aria-label="Tell Your Journey home"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text">Tell Your Journey</span></a>
+      <nav class="nav" aria-label="Main"><a href="/#how">How it works</a><a href="/#pricing">Pricing</a><a href="/#faq">FAQ</a></nav>
+      <a class="btn btn-primary btn-sm" href="/#start">Get a free call</a>
+    </div>
+  </header>
+  <section class="page-hero"><div class="wrap narrow"><h1>My data</h1>
+    <p>Download or delete everything Ava stores about your number: your profile, resume or profile details, call transcripts and summaries, and consent records.</p></div></section>
 
-    <section class="card">
-      <div id="verify-step" class="otp">
-        <label>Mobile number
-          <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210">
-        </label>
-        <button id="send" type="button">Send code</button>
-        <label id="code-label" hidden>6-digit code
-          <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
-        </label>
-        <button id="confirm" type="button" hidden>Verify</button>
-        <p id="verify-status" class="status" role="status"></p>
+  <main class="page"><div class="wrap narrow"><div class="page-card">
+    <div id="verify-step" class="data-actions">
+      <div class="field">
+        <label for="phone">Mobile number</label>
+        <div class="phone-input"><span class="prefix">+91</span><input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210"></div>
       </div>
+      <button id="send" type="button" class="btn btn-primary">Send code</button>
+      <div class="field" id="code-label" hidden>
+        <label for="code">6-digit code</label>
+        <input id="code" class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
+      </div>
+      <button id="confirm" type="button" class="btn btn-primary" hidden>Verify</button>
+      <p id="verify-status" class="status" role="status"></p>
+    </div>
 
-      <div id="actions" class="otp" hidden>
-        <p>Verified number: <b id="number"></b></p>
-        <a id="download" href="/api/my-data" download><button type="button" class="secondary">Download my data</button></a>
-        <button id="delete" type="button" class="danger">Delete my data</button>
-        <p class="hint">Deleting removes your profile, resume, call transcripts, summaries and consent records, and you'll start fresh, including any unused day pass. Payment records stay as tax law requires, holding only a coded form of your number.</p>
-        <p id="action-status" class="status" role="status"></p>
-      </div>
-      <div id="recaptcha"></div>
-    </section>
-  </main>
-  <footer><a href="/privacy">Privacy policy</a> · <a href="/terms">Terms</a></footer>
+    <div id="actions" class="data-actions" hidden>
+      <p>Verified number: <b id="number"></b></p>
+      <a id="download" class="btn btn-ghost" href="/api/my-data" download>⬇ Download my data</a>
+      <button id="delete" type="button" class="btn btn-danger">Delete my data</button>
+      <p class="status">Deleting removes your profile, resume and profile details, call transcripts, summaries and consent records, and you'll start fresh, including any unused day pass. Payment records stay as tax law requires, holding only a coded form of your number.</p>
+      <p id="action-status" class="status" role="status"></p>
+    </div>
+    <div id="recaptcha"></div>
+  </div></div></main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div><a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text">Tell Your Journey</span></a>
+        <p class="footer-note">Ava is an AI career coach that calls you, listens, and helps you plan your next move.</p></div>
+      <div><h4>Product</h4><a href="/#how">How it works</a><a href="/#pricing">Pricing</a><a href="/#faq">FAQ</a></div>
+      <div><h4>Your data</h4><a href="/privacy">Privacy policy</a><a href="/terms">Terms of use</a><a href="/my-data">Download or delete my data</a></div>
+      <div><h4>Contact</h4><a href="mailto:ranjanalok2032@gmail.com">ranjanalok2032@gmail.com</a><span class="muted">Grievance officer: Alok Ranjan</span></div>
+    </div>
+    <div class="wrap footer-bottom"><span>© 2026 Tell Your Journey</span><span>Ava is an AI. Guidance only, not professional advice.</span></div>
+  </footer>
+
   <script type="module">
     import { friendlyOtpError, getConfig, getSession, sendCode, toE164 } from "/static/otp.js";
     const $ = (id) => document.getElementById(id);
@@ -69,14 +89,14 @@
     });
 
     $("delete").addEventListener("click", async () => {
-      if (!confirm("Delete all your data from Disha? This can't be undone.")) return;
+      if (!confirm("Delete all your data from Tell Your Journey? This can't be undone.")) return;
       status("action-status", "Deleting…");
       const res = await fetch("/api/my-data/delete", { method: "POST", credentials: "same-origin" });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         $("actions").hidden = true;
-        status("verify-status", "Your data has been deleted.");
         $("verify-step").hidden = false;
+        status("verify-status", "Your data has been deleted.");
       } else status("action-status", data.error || "Couldn't delete. Please try again.", true);
     });
   </script>

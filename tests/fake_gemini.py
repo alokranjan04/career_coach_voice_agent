@@ -35,7 +35,7 @@ class FakeGemini:
         async for raw in ws:
             m = json.loads(raw)
             if m.get("realtimeInput", {}).get("text") == "[CALL_STARTED]":
-                await ws.send(json.dumps({"serverContent": {"outputTranscription": {"text": "Hi, this is Disha."},
+                await ws.send(json.dumps({"serverContent": {"outputTranscription": {"text": "Hi, this is Ava."},
                                                             "modelTurn": {"parts": [audio_part()]}}}))
                 await ws.send(json.dumps({"serverContent": {"turnComplete": True}, **usage}))
             elif "audio" in m.get("realtimeInput", {}) and not heard:
