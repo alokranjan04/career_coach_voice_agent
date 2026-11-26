@@ -16,7 +16,7 @@ def _headers() -> dict:
             "Content-Type": "application/json"}
 
 
-def place_call(to: str, answer_url: str, hangup_url: str) -> str:
+def place_call(to: str, answer_url: str, hangup_url: str, time_limit: int = 0) -> str:
     """Start a call; returns Vobiz's request_uuid. The path is case-sensitive:
     a lowercase /account/.../call/ returns 401."""
     if not (config.VOBIZ_AUTH_ID and config.VOBIZ_AUTH_TOKEN and config.VOBIZ_FROM_NUMBER):
@@ -27,7 +27,7 @@ def place_call(to: str, answer_url: str, hangup_url: str) -> str:
             # ring_timeout: give up if unanswered. NOT hangup_on_ring, which ends
             # the call that many seconds after ringing starts, even once answered.
             "ring_timeout": config.RING_SECS,
-            "time_limit": config.MAX_CALL_SECS + 60,
+            "time_limit": time_limit or config.MAX_CALL_SECS + 60,
             "caller_name": "Ava · Tell Your Journey"}
     r = requests.post(f"{API}/Account/{config.VOBIZ_AUTH_ID}/Call/", json=body,
                       headers=_headers(), timeout=15)

@@ -218,7 +218,7 @@ def delete_user_data(phone: str) -> dict:
     """Erase personal data for a number. Payment ledger entries stay (tax law),
     but they hold only a hash and the last 4 digits of the number."""
     removed = 0
-    for path in [f"profiles/{phone}.json", f"phones/{phone}.json", *_list(f"consents/{phone}/")]:
+    for path in [f"profiles/{phone}.json", f"phones/{phone}.json", f"otp/{phone}.json", *_list(f"consents/{phone}/")]:
         _delete(path)
         removed += 1
     for path in _list("calls/"):

@@ -24,7 +24,7 @@ import time
 
 from aiohttp import web
 
-from agent import auth, config, integrations, obs, payments, quality, store, telephony, vobiz_api
+from agent import auth, config, integrations, obs, otp, payments, quality, store, telephony, vobiz_api
 from agent import whatsapp as wa
 from agent.pipeline import call_handler, check_balances
 from agent.resume import ResumeError, extract_text
@@ -141,6 +141,63 @@ async def verify(request: web.Request) -> web.Response:
     resp = web.json_response({"phone": "+" + phone})
     auth.set_cookie(resp, phone)
     return resp
+
+
+# ---------- voice OTP (Ava's number calls and reads the code) ----------
+
+async def otp_send(request: web.Request) -> web.Response:
+    body = await request.json()
+    phone = _indian_mobile(str(body.get("phone", "")))
+    if not phone:
+        return _error("Please enter a valid 10-digit Indian mobile number.")
+    if await asyncio.to_thread(store.spend_today) >= config.DAILY_SPEND_CAP_INR:
+        return _error("Verification is busy right now. Please try again later.", 503)
+    try:
+        token = await asyncio.to_thread(otp.start, phone, _client_ip(request))
+    except otp.OtpError as e:
+        obs.log("otp_limited", str(e), severity="WARNING", phone_last4=phone[-4:])
+        return _error(str(e), e.status)
+    base = config.PUBLIC_URL or _base_url(request)
+    try:
+        await asyncio.to_thread(vobiz_api.place_call, phone, f"{base}/otp/answer?k={token}",
+                                f"{base}/otp/hangup", 90)
+    except vobiz_api.CallError as e:
+        obs.log("otp_call_failed", str(e), severity="ERROR", phone_last4=phone[-4:])
+        return _error("We couldn't call you with a code. Please try again.", 502)
+    await asyncio.to_thread(store.add_spend, {"vobiz_otp": config.VOBIZ_RATE_PER_MIN_INR})
+    obs.log("otp_sent", "voice OTP call placed", phone_last4=phone[-4:])
+    return web.json_response({"ok": True, "phone": "+" + phone})
+
+
+async def otp_verify(request: web.Request) -> web.Response:
+    body = await request.json()
+    phone = _indian_mobile(str(body.get("phone", "")))
+    if not phone:
+        return _error("Please enter a valid 10-digit Indian mobile number.")
+    try:
+        await asyncio.to_thread(otp.verify, phone, str(body.get("code", "")))
+    except otp.OtpError as e:
+        obs.log("otp_failed", str(e), severity="WARNING", phone_last4=phone[-4:])
+        return _error(str(e), e.status)
+    profile = await asyncio.to_thread(store.load_profile, phone)
+    if profile:
+        profile["verified_at"] = profile.get("verified_at") or time.time()
+        await asyncio.to_thread(store.save_profile, profile)
+    obs.log("otp_verified", "phone verified by voice OTP", phone_last4=phone[-4:])
+    resp = web.json_response({"phone": "+" + phone})
+    auth.set_cookie(resp, phone)
+    return resp
+
+
+async def otp_answer(request: web.Request) -> web.Response:
+    code = await asyncio.to_thread(otp.code_for_call, request.query.get("k", ""))
+    xml = otp.answer_xml(code) if code else \
+        '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>'
+    return web.Response(text=xml, content_type="text/xml")
+
+
+async def otp_hangup(request: web.Request) -> web.Response:
+    return web.Response(text="OK")
 
 
 async def logout(request: web.Request) -> web.Response:
@@ -412,7 +469,7 @@ async def health(request: web.Request) -> web.Response:
         "sessions_bucket_set": bool(config.SESSIONS_BUCKET),
         "sheet_set": bool(config.SPREADSHEET_ID),
         "email_set": bool(config.GMAIL_USER and config.GMAIL_APP_PASSWORD),
-        "otp_set": bool(config.FIREBASE_WEB_API_KEY and config.SESSION_SECRET),
+        "otp_set": bool(config.SESSION_SECRET and config.VOBIZ_AUTH_ID and config.VOBIZ_FROM_NUMBER),
         "payments_set": payments.enabled(),
         "whatsapp_set": bool(wa.enabled()),
     })
@@ -436,6 +493,10 @@ def make_app() -> web.Application:
     app.router.add_get("/api/config", public_config)
     app.router.add_get("/api/session", session)
     app.router.add_post("/api/verify", verify)
+    app.router.add_post("/api/otp/send", otp_send)
+    app.router.add_post("/api/otp/verify", otp_verify)
+    app.router.add_post("/otp/answer", otp_answer)
+    app.router.add_post("/otp/hangup", otp_hangup)
     app.router.add_post("/api/logout", logout)
     app.router.add_post("/api/call", request_call)
     app.router.add_get("/api/call/{sid}", call_status)

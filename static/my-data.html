@@ -26,7 +26,7 @@
         <label for="phone">Mobile number</label>
         <div class="phone-input"><span class="prefix">+91</span><input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210"></div>
       </div>
-      <button id="send" type="button" class="btn btn-primary">Send code</button>
+      <button id="send" type="button" class="btn btn-primary">Call me with a code</button>
       <div class="field" id="code-label" hidden>
         <label for="code">6-digit code</label>
         <input id="code" class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
@@ -79,7 +79,7 @@
         status("verify-status", "Sending code…");
         confirmCode = await sendCode(cfg, e164, "recaptcha");
         $("code-label").hidden = $("confirm").hidden = false;
-        status("verify-status", "Code sent.");
+        status("verify-status", "We're calling you now. Enter the code Ava reads out.");
       } catch (err) { status("verify-status", friendlyOtpError(err), true); }
     });
 

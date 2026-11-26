@@ -130,7 +130,7 @@ let confirmCode = null;
 async function startOtp() {
   const e164 = toE164($("phone").value);
   if (!e164) throw new Error("Please enter a valid 10-digit Indian mobile number.");
-  setStatus($("setup-status"), "Sending a code to your phone…");
+  setStatus($("setup-status"), "Calling you with a verification code…");
   confirmCode = await sendCode(cfg, e164, "recaptcha");
   setStatus($("setup-status"), "");
   $("otp-number").textContent = e164;

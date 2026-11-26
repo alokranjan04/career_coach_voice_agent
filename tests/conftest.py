@@ -49,7 +49,7 @@ def world(monkeypatch):
         return before - len(w.rows)
     monkeypatch.setattr(integrations, "delete_rows_where", delete_rows_where)
     monkeypatch.setattr(integrations, "send_email", lambda to, s, b: w.mails.append((to, s, b)) or True)
-    monkeypatch.setattr(vobiz_api, "place_call", lambda to, a, h: w.placed.append((to, a, h)) or "req")
+    monkeypatch.setattr(vobiz_api, "place_call", lambda to, a, h, time_limit=0: w.placed.append((to, a, h)) or "req")
     monkeypatch.setattr(vobiz_api, "hangup", lambda uuid: w.hung.append(uuid))
     monkeypatch.setattr(vobiz_api, "call_cost_inr", lambda uuid: 1.35)
     monkeypatch.setattr(vobiz_api, "balance_inr", lambda: 650.0)
