@@ -56,18 +56,19 @@ Reply with ONLY your next spoken line as the caller (no labels, no quotes). If t
 def caller_line(persona: str, transcript: list) -> str:
     r = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{config.QUALITY_MODEL}:generateContent",
-        params={"key": config.GEMINI_API_KEY}, timeout=60,
+        headers={"x-goog-api-key": config.GEMINI_API_KEY}, timeout=60,
         json={"contents": [{"role": "user", "parts": [{"text": CALLER_PROMPT.format(
             persona=persona, transcript="\n".join(transcript))}]}], "generationConfig": {"temperature": 0.7}})
     r.raise_for_status()
     return "".join(p.get("text", "") for p in r.json()["candidates"][0]["content"]["parts"]).strip()
 
 
-async def coach_turn(gem, transcript: list) -> tuple:
-    """Read one coach turn: returns (spoken text, saved_summary_now)."""
+async def coach_turn(gem, transcript: list, timeout: float = 90) -> tuple:
+    """Read one coach turn: returns (spoken text, saved_summary_now).
+    Raises TimeoutError if the model goes quiet for `timeout` seconds."""
     said, saved = "", False
     while True:
-        data = json.loads(await asyncio.wait_for(gem.recv(), 60))
+        data = json.loads(await asyncio.wait_for(gem.recv(), timeout))
         sc = data.get("serverContent", {})
         said += (sc.get("outputTranscription") or {}).get("text", "")
         if "toolCall" in data:
@@ -96,10 +97,20 @@ async def run_persona(name: str, max_turns: int) -> dict:
         assert "setupComplete" in first, f"setup rejected: {first}"  # prompt/tools must be accepted
         await gem.send(json.dumps({"realtimeInput": {"text": "[CALL_STARTED]"}}))
         for turn in range(max_turns):
-            said, saved_now = await coach_turn(gem, transcript)
+            try:
+                said, saved_now = await coach_turn(gem, transcript)
+            except (asyncio.TimeoutError, TimeoutError):
+                transcript.append("[the model went quiet: conversation ended by the test]")
+                break
             saved = saved or saved_now
             transcript.append(f"Coach: {said}")
             if saved_now:
+                # The closing (what's coming by email, how to book again) comes after the save.
+                try:
+                    closing, _ = await coach_turn(gem, transcript, timeout=30)
+                    transcript.append(f"Coach: {closing}")
+                except (asyncio.TimeoutError, TimeoutError):
+                    pass
                 break
             line = await asyncio.to_thread(caller_line, persona, transcript)
             if line.upper().startswith("END"):

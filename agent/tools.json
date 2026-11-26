@@ -16,9 +16,9 @@
             "obstacles": { "type": "STRING", "description": "What the user said is holding them back" },
             "resume_feedback": { "type": "STRING", "description": "The specific resume improvements you suggested; empty if none" },
             "next_steps": { "type": "STRING", "description": "The two or three concrete 30-day actions the user agreed to, each with its output and deadline, as a numbered list" },
-            "follow_up_wanted": { "type": "STRING", "description": "'yes' or 'no': whether the user wants a follow-up session" }
+            "follow_up_wanted": { "type": "STRING", "description": "'yes' only if the user themselves asked for another session; otherwise leave empty. Do not ask about it." }
           },
-          "required": ["current_situation", "goal", "target_role", "obstacles", "next_steps", "follow_up_wanted"]
+          "required": ["current_situation", "goal", "target_role", "obstacles", "next_steps"]
         }
       }
     ]

@@ -102,7 +102,7 @@ def _parse_json(text: str) -> dict:
 def _grounded(prompt: str, usage, timeout: int = 150) -> dict:
     """One Gemini request with Google Search; records tokens and searches in usage."""
     r = requests.post(API.format(model=config.RESEARCH_MODEL), timeout=timeout,
-                      params={"key": config.GEMINI_API_KEY},
+                      headers={"x-goog-api-key": config.GEMINI_API_KEY},
                       json={"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                             "tools": [{"google_search": {}}]})
     r.raise_for_status()
