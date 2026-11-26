@@ -28,7 +28,8 @@ GEMINI_WS_URL = (
 )  # contains the key — never log it
 
 TELEPHONY_PROVIDER = env("TELEPHONY_PROVIDER", "vobiz").lower()
-PUBLIC_URL = env("PUBLIC_URL").rstrip("/")
+PUBLIC_URL = env("PUBLIC_URL").rstrip("/")  # run.app address: Vobiz callbacks, media stream, scheduler audience
+SITE_URL = (env("SITE_URL") or PUBLIC_URL).rstrip("/")  # address people see, e.g. https://coach.tellyourjourney.com
 PORT = int(env("PORT", "8080"))
 
 # Post-call research (agent/resources.py): text model with Google Search grounding.

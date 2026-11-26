@@ -317,7 +317,7 @@ def _summary_email(call: Call, resources_text: str) -> str:
         body += [resources_text]
     body += ["All the best!", "Disha", "",
              "This summary was written by an AI coach. Treat it as guidance, not professional advice.",
-             f"Your data and rights: {config.PUBLIC_URL}/my-data · Privacy policy: {config.PUBLIC_URL}/privacy"]
+             f"Your data and rights: {config.SITE_URL}/my-data · Privacy policy: {config.SITE_URL}/privacy"]
     return "\n".join(body)
 
 

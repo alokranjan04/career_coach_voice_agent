@@ -59,7 +59,7 @@ Settings are kept between deploys and changed with `gcloud run services update`:
 | Kind | Names |
 |---|---|
 | Secrets (Secret Manager) | `GEMINI_API_KEY`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `VOBIZ_AUTH_ID`, `VOBIZ_AUTH_TOKEN`, `SESSION_SECRET`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `TWILIO_AUTH_TOKEN` |
-| Env vars | `VOBIZ_FROM_NUMBER`, `SESSIONS_BUCKET`, `PUBLIC_URL`, `GOOGLE_SPREADSHEET_ID`, `FIREBASE_WEB_API_KEY`, `GCP_PROJECT`, `ADMIN_EMAIL`, `RAZORPAY_KEY_ID`, `TWILIO_ACCOUNT_SID`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_SID`, plus optional limits and prices in `agent/config.py` |
+| Env vars | `VOBIZ_FROM_NUMBER`, `SESSIONS_BUCKET`, `PUBLIC_URL` (run.app: telephony and scheduler), `SITE_URL` (https://coach.tellyourjourney.com), `GOOGLE_SPREADSHEET_ID`, `FIREBASE_WEB_API_KEY`, `GCP_PROJECT`, `ADMIN_EMAIL`, `RAZORPAY_KEY_ID`, `TWILIO_ACCOUNT_SID`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_SID`, plus optional limits and prices in `agent/config.py` |
 | Flags | `--timeout=3600 --no-cpu-throttling --min-instances=0 --max-instances=3 --concurrency=20` |
 
 ## Observability
@@ -99,3 +99,12 @@ and the regression test gates prompt changes.
 Built but switched off: it turns on only when `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
 `TWILIO_WHATSAPP_FROM` and an approved `TWILIO_CONTENT_SID` are all set. Until then the
 page doesn't offer it and Disha doesn't mention it. Setup: `docs/whatsapp-template.md`.
+
+## Custom domain
+
+`https://coach.tellyourjourney.com` goes through a global external Application Load
+Balancer (static IP `coach-ip`, serverless NEG `coach-neg` → backend `coach-be`,
+Google-managed certificate `coach-cert`, http→https redirect), because Cloud Run
+domain mapping isn't available in asia-south1. GoDaddy has an A record `coach` →
+the static IP. Vobiz callbacks, the media stream and Cloud Scheduler keep using the
+run.app address (`PUBLIC_URL`).
